@@ -2,7 +2,7 @@
   "name": "kodak-sp360-4k",
   "version": "0.0.1",
   "description": "Kodak sp360 4k camera wifi controler.",
-  "main": "index.js",
+  "main": "kodak.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -24,8 +24,6 @@
   "homepage": "https://github.com/huangqiheng/kodak-sp360-4k#readme",
   "dependencies": {
     "async": "^2.1.2",
-    "ffi": "^2.2.0",
-    "ref": "^1.3.2",
     "tcp-base": "^1.0.1"
   }
 }
