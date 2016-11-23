@@ -24,6 +24,7 @@
   "homepage": "https://github.com/huangqiheng/kodak-sp360-4k#readme",
   "dependencies": {
     "async": "^2.1.2",
+    "hex": "^0.1.0",
     "prettyjson": "^1.2.0",
     "tcp-base": "^1.0.1"
   }
