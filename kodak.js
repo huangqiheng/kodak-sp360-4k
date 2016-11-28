@@ -2,23 +2,50 @@
 
 const TCPBase = require('tcp-base');
 const dgram = require("dgram");
-const prettyjson = require('prettyjson');
-const hex = require('hex');
+const func = require('./func.js');
+const resp = require('./resp.js');
 
 class KodakBase extends TCPBase {
+	constructor(options) {
+		super(options);
+
+		this.on('request', (entity) => {
+			const packet = resp(entity.header, entity.data);
+
+			print_hex(packet, 'auto echo response:');
+			packet && this.send_rsp(packet, true);
+		});
+	}
+
+	send_rsp(packet, oneway=false) {
+		let id = this.getId(packet);
+
+		this.send({
+			id: id,
+			data: packet,
+			timeout: 5000,
+			oneway: oneway,
+		}, (err, res) => {
+			if (err) {
+				console.error(err);
+			}
+			print_hex(res, 'recv response:');
+		});
+	}
+
+	getId(header) {
+		return header.readInt32LE(0x8);
+	}
+
 	getBodyLength(header) {
-		let data_length = header.readInt32BE(0x04);
+		let data_length = header.readInt32LE(0x04);
 		let head_size = 0x04;
 		let tail_size = 0x18;
 		return data_length? (head_size + data_length + tail_size) : head_size;
 	}
 
-	getId(header) {
-		return header.readInt32BE(0x8);
-	}
-
 	decode(body, header) {
-		print_hex('decode packet:', header);
+		//print_hex(header, 'decode packet:');
 		return {
 			id: this.getId(header),
 			data: body,
@@ -28,14 +55,6 @@ class KodakBase extends TCPBase {
 }
 
 class Kodak extends KodakBase{
-	constructor(options) {
-		super(options);
-
-		this.on('request', (entity) => {
-			print_hex('incomming request:', Buffer.concat([entity.header, entity.data]));
-		});
-	}
-
 	initPacket() {
 		let packet = new Buffer([ 
 			0x2d, 0x00, 0x00, 0x00, 0x30, 0x00, 0x00, 0x00, 
@@ -57,30 +76,15 @@ class Kodak extends KodakBase{
 			0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
 			0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 
 		]);
-
-		let id = this.getId(packet);
-
-		print_hex('send initPacket:', packet);
-
-		this.send({
-			id: id,
-			data: packet,
-			timeout: 5000,
-		}, (err, res) => {
-			if (err) {
-				console.error(err);
-			}
-
-			print_hex('recv initPacket:', res);
-		});
+		print_hex(packet, 'send first packet:');
+		this.send_rsp(packet);
 	}
 
 
 }
 
 function main(config) {
-	console.log('Configuration from UDP port 5176: ');
-	console.log(prettyjson.render(config));
+	print_json(config, 'Configuration from UDP port 5176: ');
 
 	const kodak = new Kodak({
 		host: config['camera_address'],
@@ -95,13 +99,6 @@ function main(config) {
 get_pixpro_sp360_config((config) => {main(config);});
 
 return;
-
-function print_hex(title, buffer) {
-	if (buffer) {
-		console.log("\r\n"+title);
-		hex(buffer);
-	}
-}
 
 function get_pixpro_sp360_config(callback) {
 	let server = dgram.createSocket('udp4');
@@ -142,24 +139,11 @@ function get_pixpro_sp360_config(callback) {
 	});
 }
 
-
-
+/*
 const body = new Buffer('hello');
 const data = new Buffer(8 + body.length);
 data.writeInt32BE(1, 0);
 data.writeInt32BE(body.length, 4);
 body.copy(data, 8, 0);
-
-client.send({
-	id: 1,
-	data,
-	timeout: 5000,
-}, (err, res) => {
-	if (err) {
-		console.error(err);
-	}
-	console.log(res.toString()); // should echo 'hello'
-});
-
-
+*/
 
