@@ -10,6 +10,14 @@ global.print_hex = function(buffer, title=null) {
 	}
 }
 
+global.hexval = function(value) {
+	return '0x'+value.toString(16);
+}
+
+global.between = function (x, min, max) {
+	return x >= min && x <= max;
+}
+
 global.print_json = function(json_obj, title=null) {
 	if (json_obj) {
 		let out_print = '';

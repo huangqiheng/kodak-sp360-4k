@@ -38,10 +38,27 @@ class KodakBase extends TCPBase {
 	}
 
 	getBodyLength(header) {
-		let data_length = header.readInt32LE(0x04);
-		let head_size = 0x04;
-		let tail_size = 0x18;
-		return data_length? (head_size + data_length + tail_size) : head_size;
+		const contents_size = header.readInt32LE(0x04);
+		let block_count = header.readInt32LE(0x1c);
+
+		between(contents_size,0,Number.MAX_VALUE) || throw new Error('read buffer error');
+		between(block_count,0,Number.MAX_VALUE) || throw new Error('read buffer error');
+
+		block_count && (block_count++);
+		const block_header_size = 0x10;
+		const tail_size = 0x14;
+		const body_size = tail_size + block_count * block_header_size + contents_size;
+
+		print_json({
+			header_size: hexval(this.options.headerLength),
+			tail_size: hexval(tail_size),
+			contents_size: hexval(contents_size),
+			block_count: hexval(block_count),
+			block_header_size: hexval(block_header_size),
+			body_size: hexval(body_size)
+		}, 'getBodyLength:');
+
+		return  body_size;
 	}
 
 	decode(body, header) {
@@ -90,7 +107,7 @@ function main(config) {
 		host: config['camera_address'],
 		port: config['command_port'],
 		needHeartbeat: false,
-		headerLength: 0x44
+		headerLength: 0x34
 	});
 
 	kodak.initPacket();
@@ -138,12 +155,4 @@ function get_pixpro_sp360_config(callback) {
 		socket.close();
 	});
 }
-
-/*
-const body = new Buffer('hello');
-const data = new Buffer(8 + body.length);
-data.writeInt32BE(1, 0);
-data.writeInt32BE(body.length, 4);
-body.copy(data, 8, 0);
-*/
 
