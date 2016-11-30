@@ -62,7 +62,7 @@ module.exports = function (header, data) {
 		break;
 
 	    case 0x0bbb:
-		console.log('maybe server is down.');
+		console.log('beep beep beep.');
 		break;
 
 	    default:
