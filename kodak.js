@@ -3,7 +3,6 @@
 const EventEmitter = require('events');
 const async = require("async");
 const TCPBase = require('tcp-base');
-const dgram = require("dgram");
 const func = require('./func.js');
 const resp = require('./resp.js');
 
@@ -153,10 +152,6 @@ class KodakBase extends TCPBase {
 		return header.readInt32LE(0x8);
 	}
 
-	get_cmd_name(packet) {
-
-	}
-
 	getBodyLength(header) {
 		const block_header_size = 0x10;
 		const tail_size = 0x14;
@@ -205,7 +200,9 @@ class KodakBase extends TCPBase {
 }
 
 class Kodak extends KodakBase{
-	prepare_camera(done) {
+
+	start_website(done) {
+		done = done || function(){};
 		let kodak = this;
 
 		async.waterfall([function(callback) {
@@ -224,6 +221,35 @@ class Kodak extends KodakBase{
 			print_hex(packet.data, 'open camera website:');
 			kodak.send(packet, (err, res) => {
 				print_hex(res, 'recv response web:');
+				//kodak.SentEvent.once('sent_bba', ()=>{
+					callback(err, res);
+				//});
+			});
+		},
+
+		],function (err, result) {
+			if (err) {
+				console.error(err);
+			}
+
+			let packet = kodak.gen_E903_190_packet(0x00000800, 0x00000002);
+			print_hex(packet.data, 'send client offline:');
+			kodak.send(packet, (err, res) => {
+				print_hex(res, 'recv response offline:');
+				done(result);
+			});
+		});
+	}
+
+	take_snapshot(done) {
+		done = done || function(){};
+		let kodak = this;
+
+		async.waterfall([function(callback) {
+			let packet = kodak.gen_E903_190_packet(0x00000002, 0x00000001);
+			print_hex(packet.data, 'send first packet:');
+			kodak.send(packet, (err, res) => {
+				print_hex(res, 'recv response1:');
 				//kodak.SentEvent.once('sent_bba', ()=>{
 					callback(err, res);
 				//});
@@ -258,12 +284,26 @@ class Kodak extends KodakBase{
 		},
 */
 
+		function(res, callback) {
+			let packet = kodak.gen_EF03_150_packet();
+			print_hex(packet.data, 'send capture snapshot:');
+			kodak.send(packet, (err, res) => {
+				print_hex(res, 'recv response snapshot:');
+				callback(err, res);
+			});
+		},
+
 		],function (err, result) {
 			if (err) {
 				console.error(err);
-			} else {
-				done(result);
 			}
+
+			let packet = kodak.gen_E903_190_packet(0x00000800, 0x00000002);
+			print_hex(packet.data, 'send client offline:');
+			kodak.send(packet, (err, res) => {
+				print_hex(res, 'recv response offline:');
+				done(result);
+			});
 		});
 	}
 }
@@ -278,14 +318,22 @@ function main(config) {
 		headerLength: 0x34
 	});
 
-	kodak.prepare_camera((result)=>{
-		let packet = kodak.gen_EF03_150_packet();
-		print_hex(packet.data, 'send capture snapshot:');
-		kodak.send(packet, (err, res) => {
-			print_hex(res, 'recv response5:');
-		});
-	});
 
+	switch(config.cmd) {
+	  case 'startweb': 
+		kodak.start_website((res)=>{
+			kodak.close();
+		});
+		break;
+	  case 'snapshot': 
+		kodak.take_snapshot((res)=>{
+			kodak.close();
+		});
+		break;
+	  default:
+		kodak.close();
+		console.log('input parameter error');
+	}
 };
 
 get_config((config) => {main(config);});

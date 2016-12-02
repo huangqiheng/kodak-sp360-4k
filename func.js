@@ -1,5 +1,6 @@
 'use strict';
 
+const dgram = require("dgram");
 const hex = require('hex');
 const prettyjson = require('prettyjson');
 
@@ -44,6 +45,9 @@ global.get_config = function (callback) {
 			unknow1: parseInt(confs[8]), //0
 			wifi_ssid: confs[9], //PIXPRO-SP360-4K_7B8B
 		};
+
+		config.cmd = (process.argv.length>2)? process.argv[2] : 'startweb';
+
 		callback(config);
 		server.close();
 	});
