@@ -10,29 +10,106 @@ class KodakBase extends TCPBase {
 
 	constructor(options) {
 		super(options);
+		let kodak = this;
 
 		this.SentEvent = new EventEmitter();
 
 		this.on('request', (entity) => {
-			const packet = resp(entity.header, entity.data);
+			if ((entity.header[0] !== 0x2b) && (entity.header[0] !== 0x2d)) {return;};
+			let id = this.getId(entity.header);
+			
+			//auto handle heartbeat
+			if (id === 0x07d2) {
+				kodak.send(resp(id));
+				return;
+			}
 
-			if (!packet) {return;}
-
-			print_hex(packet, 'auto echo response:');
-
-			let id = this.getId(packet);
-
-			this.send({
-				id: id,
-				data: packet,
-				timeout: 5000,
-				oneway: true,
-			}, ()=>{
-				let event_name = 'sent_'+id.toString(16);
-				console.log('emit name: ' + event_name);
-				this.SentEvent.emit(event_name);
-			});
+			entity.packet = Buffer.concat([entity.header, entity.data]); 
+			print_hex(entity.packet, 'receive request message:');
+			this.SentEvent.emit(kodak.getName(id), entity);
 		});
+	}
+
+	gen_FF03_370_packet() {
+		let packet = new Buffer([ 
+			0x2d, 0x00, 0x00, 0x00, 0xe4, 0x00, 0x00, 0x00, 
+			0xff, 0x03, 0x00, 0x00, 0x01, 0x00, 0x00, 0x80, 
+			0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0xe4, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00,
+			0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00,
+		]);
+		return {id: this.getId(packet), data: packet, timeout: 5000, oneway: false};
+	}
+
+	gen_EB03_150_packet() {
+		let packet = new Buffer([ 
+			0x2d, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 
+			0xeb, 0x03, 0x00, 0x00, 0x01, 0x00, 0x00, 0x80, 
+			0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x51, 0x59, 0xd7, 0x1f, 0x00, 0x00, 0x00, 0x00,
+			0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00,
+		]);
+		return {id: this.getId(packet), data: packet, timeout: 5000, oneway: false};
+	}
+
+	gen_XX03_118_packet(param1) {
+		let packet = new Buffer([ 
+			0x2d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0xfc, 0x03, 0x00, 0x00, 0x01, 0x00, 0x00, 0x80, 
+			0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00,
+		]);
+		packet.writeInt32LE(param1, 0x08);
+		return {id: this.getId(packet), data: packet, timeout: 5000, oneway: false};
 	}
 
 	gen_ED03_174_packet() {
@@ -152,6 +229,16 @@ class KodakBase extends TCPBase {
 		return header.readInt32LE(0x8);
 	}
 
+	getName(headerOrId) {
+		let id;
+		if (typeof headerOrId ===  'number') {
+			id = headerOrId;  
+		} else {
+			id = this.getId(headerOrId);
+		}
+		return 'packet_'+id.toString(16);
+	}
+
 	getBodyLength(header) {
 		const block_header_size = 0x10;
 		const tail_size = 0x14;
@@ -174,10 +261,10 @@ class KodakBase extends TCPBase {
 			body_size = tail_size + block_header_size * 3 + contents_size;
 			break;
 		    default:
-			console.log('new block mode');
+			print_hex(header, 'new block mode:');
 		}
 
-		print_json({
+		body_size || print_json({
 			header_size: hexval(this.options.headerLength),
 			tail_size: hexval(tail_size),
 			contents_size: hexval(contents_size),
@@ -201,43 +288,149 @@ class KodakBase extends TCPBase {
 
 class Kodak extends KodakBase{
 
-	start_website(done) {
+	service_on_ready(done) {
 		done = done || function(){};
 		let kodak = this;
 
 		async.waterfall([function(callback) {
-			let packet = kodak.gen_E903_190_packet(0x00000002, 0x00000001);
-			print_hex(packet.data, 'send first packet:');
-			kodak.send(packet, (err, res) => {
-				print_hex(res, 'recv response1:');
-				//kodak.SentEvent.once('sent_bba', ()=>{
+			let packet = kodak.gen_E903_190_packet(0x0002, 0x0001);
+			kodak.send(packet, (err, res) => {});
+
+			kodak.SentEvent.once(kodak.getName(0x7d1), (entity)=>{
+				kodak.send(resp(0x7d1), (err, res)=>{
 					callback(err, res);
-				//});
+				});
 			});
 		},
 
 		function(res, callback) {
-			let packet = kodak.gen_E903_190_packet(0x00002400, 0x00000003);
-			print_hex(packet.data, 'open camera website:');
-			kodak.send(packet, (err, res) => {
-				print_hex(res, 'recv response web:');
-				//kodak.SentEvent.once('sent_bba', ()=>{
+			let packet = kodak.gen_XX03_118_packet(0x03ea);
+			kodak.send(packet, (err, res) => {callback(err, res)});
+		},
+
+		/*
+		function(res, callback) {
+			let packet = kodak.gen_XX03_118_packet(0x03ec);
+			kodak.send(packet, (err, res) => {callback(err, res)});
+		},
+		*/
+
+		function(res, callback) {
+			let packet = kodak.gen_XX03_118_packet(0x03fc);
+			kodak.send(packet, (err, res) => {callback(err, res)});
+		},
+
+		function(res, callback) {
+			let packet = kodak.gen_EB03_150_packet();
+			kodak.send(packet, (err, res) => {callback(err, res)});
+		},
+
+		function(res, callback) {
+			let packet = kodak.gen_FF03_370_packet();
+			kodak.send(packet, (err, res) => {callback(err, res)});
+		},
+
+		function(res, callback) {
+			let packet = kodak.gen_XX03_118_packet(0x03ea);
+			kodak.send(packet, (err, res) => {callback(err, res)});
+		},
+
+		],function (err, result) {
+			if (err) {
+				console.error(err);
+
+				let packet = kodak.gen_E903_190_packet(0x0800, 0x0002);
+				print_hex(packet.data, 'send client offline:');
+				kodak.send(packet, (err, res) => {
+					print_hex(res, 'recv response offline:');
+					done(err, result);
+				});
+			} else {
+				console.log('service ready.');
+				done(null, result);
+			}
+		});
+	}
+
+	open_website_photo(done) {
+		done = done || function(){};
+		let kodak = this;
+
+		async.waterfall([function(callback) {
+			let packet = kodak.gen_E903_190_packet(0x0024, 0x0003);
+			kodak.send(packet, (err, res) => {});
+
+			kodak.SentEvent.once(kodak.getName(0x0bba), (entity)=>{
+				kodak.send(resp(0x0bba), (err, res)=>{
 					callback(err, res);
-				//});
+				});
+			});
+		},
+
+		function(res, callback) {
+			get_img_list((imgs)=> {
+				if (imgs) {
+					callback(null, res);
+				} else {
+					callback('failue on request xml list', res);
+				}
 			});
 		},
 
 		],function (err, result) {
 			if (err) {
 				console.error(err);
-			}
 
-			let packet = kodak.gen_E903_190_packet(0x00000800, 0x00000002);
-			print_hex(packet.data, 'send client offline:');
-			kodak.send(packet, (err, res) => {
-				print_hex(res, 'recv response offline:');
-				done(result);
+				let packet = kodak.gen_E903_190_packet(0x0800, 0x0002);
+				print_hex(packet.data, 'send client offline:');
+				kodak.send(packet, (err, res) => {
+					print_hex(res, 'recv response offline:');
+					done(err, result);
+				});
+			} else {
+				done(err, result);
+			}
+		});
+	}
+
+	open_website_video(done) {
+		done = done || function(){};
+		let kodak = this;
+
+		async.waterfall([function(callback) {
+			let packet = kodak.gen_E903_190_packet(0x0024, 0x0003);
+			kodak.send(packet, (err, res) => {});
+
+			kodak.SentEvent.once(kodak.getName(0x0bba), (entity)=>{
+				kodak.send(resp(0x0bba), (err, res)=>{
+					callback(err, res);
+				});
 			});
+		},
+
+		function(res, callback) {
+			get_img_list((imgs)=> {
+				if (imgs) {
+					callback(null, res);
+				} else {
+					callback('failue on request xml list', res);
+				}
+			});
+		},
+
+		],function (err, result) {
+			if (err) {
+				console.error(err);
+
+				let packet = kodak.gen_E903_190_packet(0x0800, 0x0002);
+				print_hex(packet.data, 'send client offline:');
+				kodak.send(packet, (err, res) => {
+					print_hex(res, 'recv response offline:');
+					done(err, result);
+				});
+			} else {
+				done(err, result);
+			}
 		});
 	}
 
@@ -246,25 +439,17 @@ class Kodak extends KodakBase{
 		let kodak = this;
 
 		async.waterfall([function(callback) {
-			let packet = kodak.gen_E903_190_packet(0x00000002, 0x00000001);
-			print_hex(packet.data, 'send first packet:');
-			kodak.send(packet, (err, res) => {
-				print_hex(res, 'recv response1:');
-				//kodak.SentEvent.once('sent_bba', ()=>{
+			let packet = kodak.gen_E903_190_packet(0x0008, 0x0003);
+			kodak.send(packet, (err, res) => {});
+
+			kodak.SentEvent.once(kodak.getName(0x0bba), (entity)=>{
+				kodak.send(resp(0x0bba), (err, res)=>{
 					callback(err, res);
-				//});
+				});
 			});
 		},
 
-		function(res, callback) {
-			let packet = kodak.gen_E903_190_packet(0x00000008, 0x00000003);
-			print_hex(packet.data, 'set capture picture:');
-			kodak.send(packet, (err, res) => {
-				print_hex(res, 'recv response2:');
-				callback(err, res);
-			});
-		},
-/*
+
 		function(res, callback) {
 			let packet = kodak.gen_ED03_146_packet(0x00000006);
 			print_hex(packet.data, 'send capture picture mode:');
@@ -282,7 +467,6 @@ class Kodak extends KodakBase{
 				callback(err, res);
 			});
 		},
-*/
 
 		function(res, callback) {
 			let packet = kodak.gen_EF03_150_packet();
@@ -318,6 +502,13 @@ function main(config) {
 		headerLength: 0x34
 	});
 
+	kodak.service_on_ready((err, res)=> {
+		err || kodak.open_website_photo((err, res)=> {
+			err || console.log('open website photo succefully.');
+		});
+	});
+
+	return;
 
 	switch(config.cmd) {
 	  case 'startweb': 

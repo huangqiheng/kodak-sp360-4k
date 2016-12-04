@@ -25,6 +25,7 @@
   "dependencies": {
     "async": "^2.1.2",
     "hex": "^0.1.0",
+    "node-rest-client": "^2.0.1",
     "prettyjson": "^1.2.0",
     "tcp-base": "^1.0.1"
   }

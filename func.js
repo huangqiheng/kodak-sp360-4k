@@ -1,5 +1,7 @@
 'use strict';
 
+const Client = require('node-rest-client').Client;
+const parseString = require('xml2js').parseString;
 const dgram = require("dgram");
 const hex = require('hex');
 const prettyjson = require('prettyjson');
@@ -9,15 +11,15 @@ global.print_hex = function(buffer, title=null) {
 		title && console.log("\r\n"+title);
 		hex(buffer);
 	}
-}
+};
 
 global.hexval = function(value) {
 	return '0x'+value.toString(16);
-}
+};
 
 global.between = function (x, min, max) {
 	return x >= min && x <= max;
-}
+};
 
 global.print_json = function(json_obj, title=null) {
 	if (json_obj) {
@@ -26,7 +28,7 @@ global.print_json = function(json_obj, title=null) {
 		out_print += prettyjson.render(json_obj);
 		console.log(out_print);
 	}
-}
+};
 
 global.get_config = function (callback) {
 	let server = dgram.createSocket('udp4');
@@ -63,5 +65,48 @@ global.get_config = function (callback) {
 		}
 		socket.close();
 	});
-}
+};
+
+global.get_img_list = function(callback) {
+	let client = new Client();
+	let root_path = 'http://172.16.0.254';
+
+	let args = {
+		requestConfig: { timeout: 1000 },
+		responseConfig: { timeout: 2000 }
+	};
+
+	let req = client.get(root_path + '/?custom=1', args, function (data, response) {
+		parseString(data.toString(), function (err, result) {
+			let imgs = [];
+			for (var i=0; i<result.LIST.FILECOUNT; i++) {
+				let file = result.LIST.ALLFile[0].File[i];
+				imgs.push({
+					path: root_path + file.FPATH,
+					timestamp: file.TIMECODE,
+				});
+			}
+			callback(imgs);
+		});
+	});
+
+	req.on('requestTimeout', function (req) {
+		console.log("request has expired");
+		req.abort();
+		this.callbacked || callback(null);
+		this.callbacked = true;
+	});
+
+	req.on('responseTimeout', function (res) {
+		console.log("response has expired");
+		this.callbacked || callback(null);
+		this.callbacked = true;
+	});
+
+	req.on('error', function (err) {
+		console.log('something went wrong on the request');
+		this.callbacked || callback(null);
+		this.callbacked = true;
+	});
+};
 
