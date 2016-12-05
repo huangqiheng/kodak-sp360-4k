@@ -240,6 +240,7 @@ class KodakBase extends TCPBase {
 	}
 
 	getBodyLength(header) {
+		const id = this.getId(header);
 		const block_header_size = 0x10;
 		const tail_size = 0x14;
 		const contents_size = header.readInt32LE(0x04);
@@ -251,17 +252,26 @@ class KodakBase extends TCPBase {
 
 		let body_size = 0;
 		switch(block_mode) {
-		    case 0:
+		    case 0x00:
 			body_size = tail_size + contents_size; 
 			break;
-		    case 1:
-			body_size = tail_size + block_header_size * 2;
+		    case 0x01:
+			body_size = tail_size + contents_size; 
+			body_size +=  block_header_size + 0x08;
 			break;
-		    case 2:
-			body_size = tail_size + block_header_size * 3 + contents_size;
+		    case 0x02:
+			body_size = tail_size + contents_size; 
+			body_size +=  block_header_size * 3;
+			break;
+		    case 0x22:
+			if (id === 0x03ec) {
+				body_size = 1514 + 1130 - 54*2 - 0x34;
+			} else {
+				print_hex(header, 'new block mode(22):');
+			}
 			break;
 		    default:
-			print_hex(header, 'new block mode:');
+			print_hex(header, 'new block mode: ' + block_mode);
 		}
 
 		body_size || print_json({
@@ -308,12 +318,12 @@ class Kodak extends KodakBase{
 			kodak.send(packet, (err, res) => {callback(err, res)});
 		},
 
-		/*
+		
 		function(res, callback) {
 			let packet = kodak.gen_XX03_118_packet(0x03ec);
 			kodak.send(packet, (err, res) => {callback(err, res)});
 		},
-		*/
+		
 
 		function(res, callback) {
 			let packet = kodak.gen_XX03_118_packet(0x03fc);
@@ -355,21 +365,30 @@ class Kodak extends KodakBase{
 	open_website_photo(done) {
 		done = done || function(){};
 		let kodak = this;
+		let timer = null;
 
 		async.waterfall([function(callback) {
 			let packet = kodak.gen_E903_190_packet(0x0024, 0x0003);
-			kodak.send(packet, (err, res) => {});
+			kodak.send(packet, (err, res) => {
+				callback(err, res);
+			});
+
+			timer = setTimeout(()=> {
+				kodak.SentEvent.removeAllListeners(kodak.getName(0x0bba));
+			}, 500);
 
 			kodak.SentEvent.once(kodak.getName(0x0bba), (entity)=>{
-				kodak.send(resp(0x0bba), (err, res)=>{
-					callback(err, res);
-				});
+				console.log('seens that its the first running');
+				timer && clearTimeout(timer); timer = null;
+				kodak.send(resp(0x0bba));
 			});
+
 		},
 
 		function(res, callback) {
 			get_img_list((imgs)=> {
 				if (imgs) {
+					print_json(imgs);
 					callback(null, res);
 				} else {
 					callback('failue on request xml list', res);
@@ -504,6 +523,7 @@ function main(config) {
 
 	kodak.service_on_ready((err, res)=> {
 		err || kodak.open_website_photo((err, res)=> {
+			err && console.log(err);
 			err || console.log('open website photo succefully.');
 		});
 	});
