@@ -67,12 +67,12 @@ global.get_config = function (callback) {
 	});
 };
 
-global.get_img_list = function(callback) {
+global.get_img_list = function(callback, timeout=1000) {
 	let client = new Client();
 	let root_path = 'http://172.16.0.254';
 
 	let args = {
-		requestConfig: { timeout: 1000 },
+		requestConfig: { timeout: timeout},
 		responseConfig: { timeout: 2000 }
 	};
 

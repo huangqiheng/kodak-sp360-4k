@@ -20,12 +20,26 @@ class KodakBase extends TCPBase {
 			
 			//auto handle heartbeat
 			if (id === 0x07d2) {
-				kodak.send(resp(id));
+				process.nextTick(()=>{kodak.send(resp(id))});
+				return;
+			}
+
+			//auto handle event of service started
+			if (id === 0x0bba) {
+				process.nextTick(()=>{
+					kodak.send(resp(id),()=>{
+						console.log('seens that Service is new running');
+					});
+				});
 				return;
 			}
 
 			entity.packet = Buffer.concat([entity.header, entity.data]); 
-			print_hex(entity.packet, 'receive request message:');
+			
+			if ([0x07d1].indexOf(id) === -1) {
+				print_hex(entity.packet, 'receive unknow message:');
+			}
+
 			this.SentEvent.emit(kodak.getName(id), entity);
 		});
 	}
@@ -224,7 +238,6 @@ class KodakBase extends TCPBase {
 		return {id: this.getId(packet), data: packet, timeout: 5000, oneway: false};
 	}
 
-
 	getId(header) {
 		return header.readInt32LE(0x8);
 	}
@@ -308,133 +321,75 @@ class Kodak extends KodakBase{
 
 			kodak.SentEvent.once(kodak.getName(0x7d1), (entity)=>{
 				kodak.send(resp(0x7d1), (err, res)=>{
-					callback(err, res);
+					process.nextTick(()=>{callback(err, res)});
 				});
 			});
 		},
 
 		function(res, callback) {
 			let packet = kodak.gen_XX03_118_packet(0x03ea);
-			kodak.send(packet, (err, res) => {callback(err, res)});
+			kodak.send(packet, (err,res)=> {process.nextTick(()=>{callback(err, res)})});
 		},
 
 		
 		function(res, callback) {
 			let packet = kodak.gen_XX03_118_packet(0x03ec);
-			kodak.send(packet, (err, res) => {callback(err, res)});
+			kodak.send(packet, (err,res)=> {process.nextTick(()=>{callback(err, res)})});
 		},
 		
 
 		function(res, callback) {
 			let packet = kodak.gen_XX03_118_packet(0x03fc);
-			kodak.send(packet, (err, res) => {callback(err, res)});
+			kodak.send(packet, (err,res)=> {process.nextTick(()=>{callback(err, res)})});
 		},
 
 		function(res, callback) {
 			let packet = kodak.gen_EB03_150_packet();
-			kodak.send(packet, (err, res) => {callback(err, res)});
+			kodak.send(packet, (err,res)=> {process.nextTick(()=>{callback(err, res)})});
 		},
 
 		function(res, callback) {
 			let packet = kodak.gen_FF03_370_packet();
-			kodak.send(packet, (err, res) => {callback(err, res)});
+			kodak.send(packet, (err,res)=> {process.nextTick(()=>{callback(err, res)})});
 		},
 
 		function(res, callback) {
 			let packet = kodak.gen_XX03_118_packet(0x03ea);
-			kodak.send(packet, (err, res) => {callback(err, res)});
+			kodak.send(packet, (err,res)=> {process.nextTick(()=>{callback(err, res)})});
 		},
 
 		],function (err, result) {
 			if (err) {
 				console.error(err);
-
 				let packet = kodak.gen_E903_190_packet(0x0800, 0x0002);
-				print_hex(packet.data, 'send client offline:');
-				kodak.send(packet, (err, res) => {
-					print_hex(res, 'recv response offline:');
-					done(err, result);
-				});
-			} else {
-				console.log('service ready.');
-				done(null, result);
+				print_hex(packet.data, 'service_on_ready failure and offline:');
+				kodak.send(packet, (err, res) => {});
 			}
+			done(err, result);
 		});
 	}
 
-	open_website_photo(done) {
-		done = done || function(){};
-		let kodak = this;
-		let timer = null;
-
-		async.waterfall([function(callback) {
-			let packet = kodak.gen_E903_190_packet(0x0024, 0x0003);
-			kodak.send(packet, (err, res) => {
-				callback(err, res);
-			});
-
-			timer = setTimeout(()=> {
-				kodak.SentEvent.removeAllListeners(kodak.getName(0x0bba));
-			}, 500);
-
-			kodak.SentEvent.once(kodak.getName(0x0bba), (entity)=>{
-				console.log('seens that its the first running');
-				timer && clearTimeout(timer); timer = null;
-				kodak.send(resp(0x0bba));
-			});
-
-		},
-
-		function(res, callback) {
-			get_img_list((imgs)=> {
-				if (imgs) {
-					print_json(imgs);
-					callback(null, res);
-				} else {
-					callback('failue on request xml list', res);
-				}
-			});
-		},
-
-		],function (err, result) {
-			if (err) {
-				console.error(err);
-
-				let packet = kodak.gen_E903_190_packet(0x0800, 0x0002);
-				print_hex(packet.data, 'send client offline:');
-				kodak.send(packet, (err, res) => {
-					print_hex(res, 'recv response offline:');
-					done(err, result);
-				});
-			} else {
-				done(err, result);
-			}
-		});
-	}
-
-	open_website_video(done) {
+	open_website(done, is_photo=true) {
 		done = done || function(){};
 		let kodak = this;
 
 		async.waterfall([function(callback) {
-			let packet = kodak.gen_E903_190_packet(0x0024, 0x0003);
-			kodak.send(packet, (err, res) => {});
-
-			kodak.SentEvent.once(kodak.getName(0x0bba), (entity)=>{
-				kodak.send(resp(0x0bba), (err, res)=>{
-					callback(err, res);
-				});
-			});
+			let cmd_id = is_photo? 0x2400 : 0x4400;
+			let packet = kodak.gen_E903_190_packet(cmd_id, 0x0003);
+			kodak.send(packet, (err,res)=> {callback(err, res)});
 		},
 
 		function(res, callback) {
-			get_img_list((imgs)=> {
-				if (imgs) {
-					callback(null, res);
-				} else {
-					callback('failue on request xml list', res);
-				}
-			});
+			get_img_list((imgs)=> { callback(null,imgs)}, 1000);
+		},
+		function(res, callback) {
+			get_img_list((imgs)=> { callback(null,imgs)}, 2000);
+		},
+		function(res, callback) {
+			res && callback(null, res);
+			res || get_img_list((imgs)=> { 
+				callback(imgs? null : 'get_img_list error', imgs);
+			}, 3000);
 		},
 
 		],function (err, result) {
@@ -442,14 +397,11 @@ class Kodak extends KodakBase{
 				console.error(err);
 
 				let packet = kodak.gen_E903_190_packet(0x0800, 0x0002);
-				print_hex(packet.data, 'send client offline:');
-				kodak.send(packet, (err, res) => {
-					print_hex(res, 'recv response offline:');
-					done(err, result);
-				});
-			} else {
-				done(err, result);
+				print_hex(packet.data, 'open_website offline: (' + (is_photo? 'photo':'video') + ')');
+				kodak.send(packet, (err, res) => {});
 			}
+
+			done(err, result);
 		});
 	}
 
@@ -522,9 +474,9 @@ function main(config) {
 	});
 
 	kodak.service_on_ready((err, res)=> {
-		err || kodak.open_website_photo((err, res)=> {
+		err || kodak.open_website((err, res)=> {
 			err && console.log(err);
-			err || console.log('open website photo succefully.');
+			err || console.log('open website succefully.');
 		});
 	});
 
