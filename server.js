@@ -65,22 +65,29 @@ function res_ok(conn, req, data=null) {
 
 function get_names() {
 	let res = [];
-	server.conns.forEach(function (conn) {
+
+	if (!server.connections) {
+		return res;
+	}
+
+	server.connections.forEach(function (conn) {
 		conn.client_name && res.push(conn.client_name);
 	});
+
 	return res;
 }
 
 function get_conn(client_name) {
-	if (!client_name) {
-		return null;
-	}
-	server.conns.forEach(function (conn) {
+	if (!client_name) return null;
+
+	let res_conn = null;
+	server.connections.forEach(function (conn) {
 		if (client_name == conn.client_name) {
-			return conn;
+			res_conn = conn;
+			return;
 		}
 	});
-	return null;
+	return res_conn;
 }
 
 function parse(str) {

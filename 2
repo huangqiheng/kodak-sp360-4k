@@ -34,17 +34,10 @@ window.addEventListener("load", function () {
 			event.preventDefault();
 		};
 		document.getElementById("sendmsg_form").onsubmit = function (event) {
-			let target = document.getElementById("select_name");
-			if (!target.value) {
-				show_msg('please select target name');
-				return;
-			}
-
 			let msg = document.getElementById("message");
 			if (msg.value) {
 				conn.send(JSON.stringify({
 					cmd: 'send_message',
-					target_name: target.value,
 					msg: msg.value,
 					id: 10003,
 				}));
@@ -83,12 +76,6 @@ window.addEventListener("load", function () {
 				names.selectedIndex = -1;
 			}
 			(rsp.status == 'error') && show_msg('get names failure');
-			break;
-		case 10003:
-			if (rsp.status == 'ok') {
-				show_msg(rsp.msg);
-			}
-			(rsp.status == 'error') && show_msg('send message failure');
 			break;
 		default:
 			show_msg('unknow command');
