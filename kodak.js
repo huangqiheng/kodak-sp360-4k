@@ -463,41 +463,4 @@ class Kodak extends KodakBase{
 	}
 }
 
-function main(config) {
-	print_json(config, 'Configuration from UDP port 5176: ');
-
-	const kodak = new Kodak({
-		host: config['camera_address'],
-		port: config['command_port'],
-		needHeartbeat: false,
-		headerLength: 0x34
-	});
-
-	kodak.service_on_ready((err, res)=> {
-		err || kodak.open_website((err, res)=> {
-			err && console.log(err);
-			err || console.log('open website succefully.');
-		});
-	});
-
-	return;
-
-	switch(config.cmd) {
-	  case 'startweb': 
-		kodak.start_website((res)=>{
-			kodak.close();
-		});
-		break;
-	  case 'snapshot': 
-		kodak.take_snapshot((res)=>{
-			kodak.close();
-		});
-		break;
-	  default:
-		kodak.close();
-		console.log('input parameter error');
-	}
-};
-
-get_config((config) => {main(config);});
-
+module.exports = Kodak;

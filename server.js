@@ -32,9 +32,16 @@ let server = ws.createServer(function (conn) {
 				res_err(conn, req, 'unknow command.');
 				return;
 			}
+
 			let target_conn = get_conn(ptr.get(req, '/target_name'));
-			target_conn || res_err(conn, req, 'unknow target.');
-			target_conn && target_conn.sendText(str);
+
+			if (!target_conn) {
+				res_err(conn, req, 'unknow target.');
+				return;
+			}
+
+			target_conn.sendText(str);
+			res_ok(conn, req);
 		}
 	});
 });
