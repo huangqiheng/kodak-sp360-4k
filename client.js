@@ -9,7 +9,6 @@ const PROXY_HOST = '127.0.0.1';
 const Kodak = require('./kodak.js');
 const tcpProxy = require('tcp-proxy');
 
-
 let [kodak_front, kodak_back] = connect_cameras();
 
 kodak_front.service_on_ready((err, res)=> {
@@ -22,20 +21,20 @@ kodak_front.service_on_ready((err, res)=> {
 
 function connect_cameras() 
 {
+	const PROXY_PORT_A = 19175;
+	const PROXY_PORT_B = 29175;
+
 	//------------------------------------------
 	//  camera a
 	
-	const PROXY_PORT_A = 19175;
-
-	var server_a = tcpProxy.createServer({
+	let proxy_a = tcpProxy.createServer({
 		target: {
 			host: CAM_HOST,
 			port: CAM_CMD_PORT,
 			localAddress: HOST_LOCALIP_A
 		}
 	});
-
-	server_a.listen(PROXY_PORT_A);
+	proxy_a.listen(PROXY_PORT_A);
 
 	const kodak_a = new Kodak({
 		host: PROXY_HOST,
@@ -43,21 +42,19 @@ function connect_cameras()
 		needHeartbeat: false,
 		headerLength: 0x34
 	});
+	kodak_a.tcp_proxy = proxy_a;
 
 	//------------------------------------------
 	//  camera b
 
-	const PROXY_PORT_B = 29175;
-
-	var server_b = tcpProxy.createServer({
+	let proxy_b = tcpProxy.createServer({
 		target: {
 			host: CAM_HOST,
 			port: CAM_CMD_PORT,
 			localAddress: HOST_LOCALIP_B
 		}
 	});
-
-	server_b.listen(PROXY_PORT_B);
+	proxy_b.listen(PROXY_PORT_B);
 
 	const kodak_b = new Kodak({
 		host: PROXY_HOST,
@@ -65,14 +62,19 @@ function connect_cameras()
 		needHeartbeat: false,
 		headerLength: 0x34
 	});
+	kodak_b.tcp_proxy = proxy_b;
 
 
+	//------------------------------------------
+	//  cleanup
+	
 	process.on('SIGINT', () => {
-		console.log('Received SIGINT.  Press Control-D to exit.');
+		console.log('Received SIGINT.');
 		kodak_a.close();
-		server_a.close();
+		proxy_a.close();
 		kodak_b.close();
-		server_b.close();
+		proxy_b.close();
+		process.exit();
 	});
 
 
