@@ -67,9 +67,9 @@ global.get_config = function (callback) {
 	});
 };
 
-global.get_img_list = function(callback, timeout=1000) {
+global.get_img_list = function(callback, timeout=1000, host='172.16.0.254', port=80) {
 	let client = new Client();
-	let root_path = 'http://172.16.0.254';
+	let root_path = 'http://'+ host + ':' + port;
 
 	let args = {
 		requestConfig: { timeout: timeout},
