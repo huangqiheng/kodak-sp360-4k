@@ -18,18 +18,24 @@ kodak_front.service_on_ready((err, res)=> {
 	});
 });
 
-
-function make_proxy(dist_host, dist_port, local_addr, local_port) 
+function make_http_proxy(dist_host, dist_port, local_addr, listen_port)
 {
-	let proxy_a = tcpProxy.createServer({
+	return httpProxy.createProxyServer({
+		target:'http://'+dist_host + ':' + dist_port,
+		localAddress: local_addr
+	
+	}).listen(listen_port);
+}
+
+function make_tcp_proxy(dist_host, dist_port, local_addr, listen_port) 
+{
+	return tcpProxy.createServer({
 		target: {
 			host: dist_host,
 			port: dist_port,
 			localAddress: local_addr
 		}
-	});
-	proxy_a.listen(local_port);
-	return proxy_a;
+	}).listen(listen_port);
 }
 
 function connect_cameras() 
@@ -40,7 +46,7 @@ function connect_cameras()
 
 	const PROXY_PORT_A = 19175;
 	
-	let proxy_a = make_proxy(CAM_HOST, CAM_CMD_PORT, HOST_LOCALIP_A, PROXY_PORT_A);
+	let proxy_a = make_tcp_proxy(CAM_HOST, CAM_CMD_PORT, HOST_LOCALIP_A, PROXY_PORT_A);
 
 	const kodak_a = new Kodak({
 		host: PROXY_HOST,
@@ -55,7 +61,7 @@ function connect_cameras()
 
 	const PROXY_PORT_B = 29175;
 
-	let proxy_b= make_proxy(CAM_HOST, CAM_CMD_PORT, HOST_LOCALIP_B, PROXY_PORT_B;
+	let proxy_b= make_tcp_proxy(CAM_HOST, CAM_CMD_PORT, HOST_LOCALIP_B, PROXY_PORT_B;
 
 	const kodak_b = new Kodak({
 		host: PROXY_HOST,
