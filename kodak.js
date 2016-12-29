@@ -5,6 +5,61 @@ const async = require("async");
 const TCPBase = require('tcp-base');
 const func = require('./func.js');
 const resp = require('./resp.js');
+const Client = require('node-rest-client').Client;
+
+class KodakWeb  {
+	constructor(options) {
+		this.client = new Client();
+		this.req_timeout = options.req_timeout || 1000;
+		this.rsp_timeout = options.rsp_timeout || 2000;
+		this.default_host = options.default_host || '172.16.0.254';
+		this.default_port = options.default_port || 80;
+	}
+
+	get_list(callback) {
+		let root_path = 'http://'+ this.default_host + ':' + this.default_port;
+
+		let args = {
+			requestConfig:  { timeout: this.req_timeout},
+			responseConfig: { timeout: this.rsp_timeout}
+		};
+
+		var req = client.get(root_path + '/?custom=1', args, function (data, response) {
+			parseString(data.toString(), function (err, result) {
+				let imgs = [];
+				for (var i=0; i<result.LIST.FILECOUNT; i++) {
+					let file = result.LIST.ALLFile[0].File[i];
+					imgs.push({
+						path: root_path + file.FPATH,
+						timestamp: file.TIMECODE,
+					});
+				}
+				callback(imgs);
+			});
+		});
+
+		req.on('requestTimeout', function (req) {
+			console.log("request has expired");
+			req.abort();
+			this.callbacked || callback(null);
+			this.callbacked = true;
+		});
+
+		req.on('responseTimeout', function (res) {
+			console.log("response has expired");
+			this.callbacked || callback(null);
+			this.callbacked = true;
+		});
+
+		req.on('error', function (err) {
+			console.log('something went wrong on the request');
+			this.callbacked || callback(null);
+			this.callbacked = true;
+		});
+
+	}
+}	
+
 
 class KodakBase extends TCPBase {
 

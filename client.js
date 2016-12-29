@@ -8,6 +8,7 @@ const PROXY_HOST = '127.0.0.1';
 
 const Kodak = require('./kodak.js');
 const tcpProxy = require('tcp-proxy');
+const range = require("range");
 
 let [kodak_front, kodak_back] = connect_cameras();
 
@@ -38,54 +39,46 @@ function make_tcp_proxy(dist_host, dist_port, local_addr, listen_port)
 	}).listen(listen_port);
 }
 
-function connect_cameras() 
+function connect_cameras(host_local_ipaddr) 
 {
-
-	//------------------------------------------
-	//  camera a
-
-	const PROXY_PORT_A = 19175;
+	// camera command port
+	const proxy_port = get_random_port();
 	
-	let proxy_a = make_tcp_proxy(CAM_HOST, CAM_CMD_PORT, HOST_LOCALIP_A, PROXY_PORT_A);
+	let proxy = make_tcp_proxy(CAM_HOST, CAM_CMD_PORT, host_local_ipaddr, proxy_port);
 
-	const kodak_a = new Kodak({
+	const kodak_9715 = new Kodak({
 		host: PROXY_HOST,
-		port: PROXY_PORT_A,
+		port: proxy_port,
 		needHeartbeat: false,
 		headerLength: 0x34
 	});
-	kodak_a.tcp_proxy = proxy_a;
 
-	//------------------------------------------
-	//  camera b
+	kodak_9715.tcp_proxy = proxy;
 
-	const PROXY_PORT_B = 29175;
+	//camera web
 
-	let proxy_b= make_tcp_proxy(CAM_HOST, CAM_CMD_PORT, HOST_LOCALIP_B, PROXY_PORT_B;
+	return kodak_9715;
+}
 
-	const kodak_b = new Kodak({
-		host: PROXY_HOST,
-		port: PROXY_PORT_B,
-		needHeartbeat: false,
-		headerLength: 0x34
-	});
-	kodak_b.tcp_proxy = proxy_b;
+function get_random_port()
+{
+	const PORT_BASE = 10000;
 
+	if (global.random_ports === undefined) {
+		global.random_ports = range.range(PORT_BASE, PORT_BASE+10); 
+	}
 
-	//------------------------------------------
-	//  cleanup
+	return global.random_ports.pop();
+}
+
 	
-	process.on('SIGINT', () => {
-		console.log('Received SIGINT.');
-		kodak_a.close();
-		proxy_a.close();
-		kodak_b.close();
-		proxy_b.close();
-		process.exit();
-	});
+//------------------------------------------
+//  cleanup
 
+process.on('SIGINT', () => {
+	console.log('Received SIGINT.');
+	process.exit();
+});
 
-	return [kodak_a, kodak_b];
-};
 
 
