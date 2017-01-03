@@ -6,14 +6,90 @@ const TCPBase = require('tcp-base');
 const func = require('./func.js');
 const resp = require('./resp.js');
 const Client = require('node-rest-client').Client;
+const request = require('request');
+
 
 class KodakWeb  {
 	constructor(options) {
+		options = options || {
+			req_timeout: null,
+			default_host: null, 
+			default_host: null,
+			default_port: null
+		};
+
 		this.client = new Client();
 		this.req_timeout = options.req_timeout || 1000;
 		this.rsp_timeout = options.rsp_timeout || 2000;
 		this.default_host = options.default_host || '172.16.0.254';
 		this.default_port = options.default_port || 80;
+	}
+
+	image_download(options) {
+		function on_error(err, options) {
+			if (options.done) {
+				return options.done(err);
+			}
+
+			throw err;
+		}
+
+		if (!options.url) {
+			throw new Error('The option url is required');
+		}
+
+		if (!options.dest) {
+			throw new Error('The option dest is required');
+		}
+
+		let req_opts = {
+			url: options.url, 
+			encoding: null
+		};
+
+		if (options.localAddress) {
+			req_opts.localAddress = options.localAddress;
+		}
+
+		request(req_opts, function (err, res, body) {
+			if (err) { 
+				on_error(err, options);
+			}
+
+			if (body && res.statusCode === 200) {
+				if (!path.extname(options.dest)) {
+					options.dest = path.join(options.dest, path.basename(options.url));
+				}
+
+				fs.writeFile(options.dest, body, 'binary', function(err){
+					if (err) {
+						on_error(err, options);
+					}
+					options.done && options.done(false, options.dest, body)
+				});
+			} else {
+				if (!body) { 
+					on_error(new Error('Image loading error - empty body. URL: ' + options.url), options); 
+				} else { 
+					on_error(new Error('Image loading error - ' + res.statusCode + '. URL: ' + options.url), options); 
+				}
+			}
+		});
+	}
+
+	get_image(url, tofile, callback) {
+		var options = {
+			url: url,
+			dest: tofile, // Save to /path/to/dest/image.jpg 
+			done: function(err, filename, image) {
+				if (err) {
+					throw err;
+				}
+				console.log('File saved to', filename);
+				callback && callback(filename);
+			},
+		};
+		image_download(options);
 	}
 
 	get_list(callback) {
@@ -518,4 +594,4 @@ class Kodak extends KodakBase{
 	}
 }
 
-module.exports = Kodak;
+module.exports = [Kodak, KodakWeb];

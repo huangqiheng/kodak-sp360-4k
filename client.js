@@ -4,11 +4,15 @@ const HOST_LOCALIP_A = '172.16.0.101';
 const HOST_LOCALIP_B = '172.16.0.102';
 const CAM_HOST = '172.16.0.254';
 const CAM_CMD_PORT = 9175;
+const CAM_WEB_PORT = 9175;
 const PROXY_HOST = '127.0.0.1';
 
-const Kodak = require('./kodak.js');
+const [Kodak,KodakWeb] = require('./kodak.js');
 const tcpProxy = require('tcp-proxy');
 const range = require("range");
+const http = require('http');
+const httpProxy = require('http-proxy');
+
 
 let [kodak_front, kodak_back] = connect_cameras();
 
@@ -18,6 +22,7 @@ kodak_front.service_on_ready((err, res)=> {
 		err || console.log('open website succefully.');
 	});
 });
+
 
 function make_http_proxy(dist_host, dist_port, local_addr, listen_port)
 {
@@ -42,9 +47,8 @@ function make_tcp_proxy(dist_host, dist_port, local_addr, listen_port)
 function connect_cameras(host_local_ipaddr) 
 {
 	// camera command port
-	const proxy_port = get_random_port();
-	
-	let proxy = make_tcp_proxy(CAM_HOST, CAM_CMD_PORT, host_local_ipaddr, proxy_port);
+	var proxy_port = get_random_port();
+	var proxy = make_tcp_proxy(CAM_HOST, CAM_CMD_PORT, host_local_ipaddr, proxy_port);
 
 	const kodak_9715 = new Kodak({
 		host: PROXY_HOST,
@@ -53,11 +57,20 @@ function connect_cameras(host_local_ipaddr)
 		headerLength: 0x34
 	});
 
-	kodak_9715.tcp_proxy = proxy;
+	kodak_9715.cam_proxy = proxy;
 
 	//camera web
+	var proxy_port = get_random_port();
+	var proxy = make_http_proxy(CAM_HOST, CAM_WEB_PORT, host_local_ipaddr, proxy_port);
 
-	return kodak_9715;
+	const kodak_80 = new KodakWeb({
+		default_port: proxy_port
+	});
+
+	kodak_80.cam_proxy = proxy;
+
+	//return objects
+	return [kodak_9715, kodak_80];
 }
 
 function get_random_port()

@@ -26,6 +26,7 @@
     "async": "^2.1.2",
     "hex": "^0.1.0",
     "http-proxy": "^1.16.2",
+    "image-downloader": "^2.0.1",
     "json-ptr": "^1.0.1",
     "merge": "^1.2.0",
     "node-rest-client": "^2.0.1",
