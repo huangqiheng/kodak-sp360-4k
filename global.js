@@ -1,6 +1,16 @@
 'use strict';
 
-const parseString = require('xml2js').parseString;
+//............... global defind ..............
+//////////////////////////////////////////////
+
+global.HOST_LOCALIP_A = '172.16.0.101';
+global.HOST_LOCALIP_B = '172.16.0.102';
+global.CAM_HOST = '172.16.0.254';
+global.CAM_CMD_PORT = 9175;
+global.CAM_WEB_PORT = 80;
+
+//////////////////////////////////////////////
+
 const dgram = require("dgram");
 const hex = require('hex');
 const prettyjson = require('prettyjson');
@@ -65,4 +75,28 @@ global.get_config = function (callback) {
 		socket.close();
 	});
 };
+
+
+global.call_base = function(object, method, args) {
+		var base = object.hasOwnProperty('_call_base_reference') ? object._call_base_reference : object,
+			object_current_method = base[method],
+			descriptor = null,
+			is_super = false,
+			output = null;
+		while (base !== undefined) {
+			descriptor = Object.getOwnPropertyDescriptor(base, method);
+			if (descriptor !== undefined) {
+				if (descriptor.value === object_current_method) {
+					is_super = true;
+				}
+				else if (is_super === true) {
+					object._call_base_reference = base;
+					output = descriptor.value.apply(object, args);
+					delete object._call_base_reference;
+					return output;
+				}
+			}
+			base = Object.getPrototypeOf(base);
+		}
+	}
 

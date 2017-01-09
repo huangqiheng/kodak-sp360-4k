@@ -3,26 +3,21 @@
 const EventEmitter = require('events');
 const async = require("async");
 const TCPBase = require('tcp-base');
-const func = require('./func.js');
+const func = require('./global.js');
 const resp = require('./resp.js');
 const Client = require('node-rest-client').Client;
 const request = require('request');
+const assert = require('assert');
 
 
 class KodakWeb  {
 	constructor(options) {
-		options = options || {
-			req_timeout: null,
-			default_host: null, 
-			default_host: null,
-			default_port: null
-		};
+		this.options = Object.assign({}, {
+			host:  CAM_HOST,
+			port: CAM_WEB_PORT,
+		}, options);
 
-		this.client = new Client();
-		this.req_timeout = options.req_timeout || 1000;
-		this.rsp_timeout = options.rsp_timeout || 2000;
-		this.default_host = options.default_host || '172.16.0.254';
-		this.default_port = options.default_port || 80;
+		assert(this.options.localAddress, 'options.localAddress is required');
 	}
 
 	image_download(options) {
@@ -49,6 +44,8 @@ class KodakWeb  {
 
 		if (options.localAddress) {
 			req_opts.localAddress = options.localAddress;
+		} else {
+			req_opts.localAddress = this.options.localAddress;
 		}
 
 		request(req_opts, function (err, res, body) {
@@ -136,10 +133,77 @@ class KodakWeb  {
 	}
 }	
 
-
-class KodakBase extends TCPBase {
-
+class AND_TCPBase extends TCPBase {
 	constructor(options) {
+		this.localAddress = options.localAddress;
+		super(options);
+	}
+
+	_connect(done) {
+		if (!done) {
+			done = () => this.ready(true);
+		}
+
+		const socket = this._socket = net.connect({
+			port: this.options.port, 
+			host: this.options.host,
+			localAddress: this.localAddress
+		});
+
+		socket.setNoDelay(this.options.noDelay);
+		socket.on('readable', () => {
+			this._lastReceiveDataTime = Date.now();
+			try {
+				let remaining = false;
+				do {
+					remaining = this._readPacket();
+				} while (remaining);
+			} catch (err) {
+				this.close(err);
+			}
+		});
+
+		// receive `end` event that means the other end of the socket sends a FIN packet
+		socket.once('end', () => {
+			this.logger.info('[tcp-base] the connection: %s is closed by other side', this[addressKey]);
+		});
+		socket.once('close', () => this._handleClose());
+		socket.once('error', err => {
+			err.message += ' (address: ' + this[addressKey] + ')';
+			this.close(err);
+		});
+localAddress
+		socket.once('connect', done);
+
+		if (this.options.needHeartbeat) {
+			this._heartbeatTimer = setInterval(() => {
+				const duration = this._lastHeartbeatTime - this._lastReceiveDataTime;
+				if (this._lastReceiveDataTime && duration > this.options.heartbeatInterval) {
+					const err = new Error(`server no response in ${duration}ms, maybe the socket is end on the other side.`);
+					err.name = 'ServerNoResponseError';
+					this.close(err);
+					return;
+				}
+				// flow control
+				if (this._invokes.size > 0 || !this.isOK) {
+					return;
+				}
+				this._lastHeartbeatTime = Date.now();
+				this.sendHeartBeat();
+			}, this.options.heartbeatInterval);
+		}
+	}
+
+}
+
+class KodakBase extends AND_TCPBase
+{
+	constructor(options) {
+		assert(options.localAddress, 'options.localAddress is required');
+
+		options.host = options.host || CAM_HOST;
+		options.port = options.port || CAM_CMD_PORT;
+
 		super(options);
 		let kodak = this;
 

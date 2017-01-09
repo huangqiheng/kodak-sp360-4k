@@ -25,15 +25,12 @@
   "dependencies": {
     "async": "^2.1.2",
     "hex": "^0.1.0",
-    "http-proxy": "^1.16.2",
     "image-downloader": "^2.0.1",
     "json-ptr": "^1.0.1",
     "merge": "^1.2.0",
     "node-rest-client": "^2.0.1",
     "nodejs-websocket": "^1.7.1",
     "prettyjson": "^1.2.0",
-    "range": "0.0.3",
-    "tcp-base": "^1.0.1",
-    "tcp-proxy": "0.0.1"
+    "tcp-base": "^1.0.1"
   }
 }
