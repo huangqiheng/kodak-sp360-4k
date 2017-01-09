@@ -5,7 +5,6 @@ const async = require("async");
 const TCPBase = require('tcp-base');
 const func = require('./global.js');
 const resp = require('./resp.js');
-const Client = require('node-rest-client').Client;
 const request = require('request');
 const assert = require('assert');
 
