@@ -8,6 +8,7 @@ global.HOST_LOCALIP_B = '172.16.0.102';
 global.CAM_HOST = '172.16.0.254';
 global.CAM_CMD_PORT = 9175;
 global.CAM_WEB_PORT = 80;
+global.CAM_WEB_TIMEOUT = 1500;
 
 //////////////////////////////////////////////
 

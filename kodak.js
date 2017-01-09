@@ -2,11 +2,12 @@
 
 const EventEmitter = require('events');
 const async = require("async");
+const net = require("net");
+const request = require('request');
+const assert = require('assert');
 const TCPBase = require('tcp-base');
 const func = require('./global.js');
 const resp = require('./resp.js');
-const request = require('request');
-const assert = require('assert');
 
 
 class KodakWeb  {
@@ -14,7 +15,10 @@ class KodakWeb  {
 		this.options = Object.assign({}, {
 			host:  CAM_HOST,
 			port: CAM_WEB_PORT,
+			timeout: CAM_WEB_TIMEOUT,
 		}, options);
+
+		this.root_path = 'http://'+ this.options.host + ':' + this.options.port;
 
 		assert(this.options.localAddress, 'options.localAddress is required');
 	}
@@ -89,56 +93,39 @@ class KodakWeb  {
 	}
 
 	get_list(callback) {
-		let root_path = 'http://'+ this.default_host + ':' + this.default_port;
-
-		let args = {
-			requestConfig:  { timeout: this.req_timeout},
-			responseConfig: { timeout: this.rsp_timeout}
-		};
-
-		var req = client.get(root_path + '/?custom=1', args, function (data, response) {
-			parseString(data.toString(), function (err, result) {
-				let imgs = [];
-				for (var i=0; i<result.LIST.FILECOUNT; i++) {
-					let file = result.LIST.ALLFile[0].File[i];
-					imgs.push({
-						path: root_path + file.FPATH,
-						timestamp: file.TIMECODE,
-					});
-				}
-				callback(imgs);
-			});
+		request({
+			url: root_path + '/?custom=1',
+			timeout: this.options.timeout,
+			localAddress: this.options.localAddress,
+		}, function (err, response, body) {
+			if (!err && response.statusCode == 200) {
+				parseString(body, function (err, result) {
+					let imgs = [];
+					for (var i=0; i<result.LIST.FILECOUNT; i++) {
+						let file = result.LIST.ALLFile[0].File[i];
+						imgs.push({
+							path: root_path + file.FPATH,
+							timestamp: file.TIMECODE,
+						});
+					}
+					callback || callback(imgs);
+				});
+			} else {
+				callback || callback(null);
+			}
 		});
-
-		req.on('requestTimeout', function (req) {
-			console.log("request has expired");
-			req.abort();
-			this.callbacked || callback(null);
-			this.callbacked = true;
-		});
-
-		req.on('responseTimeout', function (res) {
-			console.log("response has expired");
-			this.callbacked || callback(null);
-			this.callbacked = true;
-		});
-
-		req.on('error', function (err) {
-			console.log('something went wrong on the request');
-			this.callbacked || callback(null);
-			this.callbacked = true;
-		});
-
 	}
 }	
 
 class AND_TCPBase extends TCPBase {
 	constructor(options) {
-		this.localAddress = options.localAddress;
 		super(options);
+		this.localAddress = options.localAddress;
 	}
 
 	_connect(done) {
+		const addressKey = Symbol('address');
+
 		if (!done) {
 			done = () => this.ready(true);
 		}
@@ -171,7 +158,7 @@ class AND_TCPBase extends TCPBase {
 			err.message += ' (address: ' + this[addressKey] + ')';
 			this.close(err);
 		});
-localAddress
+
 		socket.once('connect', done);
 
 		if (this.options.needHeartbeat) {
@@ -202,6 +189,7 @@ class KodakBase extends AND_TCPBase
 
 		options.host = options.host || CAM_HOST;
 		options.port = options.port || CAM_CMD_PORT;
+		options.needHeartbeat = false;
 
 		super(options);
 		let kodak = this;
@@ -573,18 +561,20 @@ class Kodak extends KodakBase{
 			kodak.send(packet, (err,res)=> {callback(err, res)});
 		},
 
+/*
 		function(res, callback) {
-			get_img_list((imgs)=> { callback(null,imgs)}, 1000);
+			Web.get_list((imgs)=> { callback(null,imgs)}, 1000);
 		},
 		function(res, callback) {
-			get_img_list((imgs)=> { callback(null,imgs)}, 2000);
+			Web.get_list((imgs)=> { callback(null,imgs)}, 2000);
 		},
 		function(res, callback) {
 			res && callback(null, res);
-			res || get_img_list((imgs)=> { 
-				callback(imgs? null : 'get_img_list error', imgs);
+			res || Web.get_list((imgs)=> { 
+				callback(imgs? null : 'get_list error', imgs);
 			}, 3000);
 		},
+*/
 
 		],function (err, result) {
 			if (err) {
