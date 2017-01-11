@@ -2,6 +2,14 @@
 
 const [Kodak,KodakWeb] = require('./kodak.js');
 
+// get config
+get_config((config)=>{
+	console.log(config);
+
+});
+
+return;
+
 //let kodak_front = connect_camera(HOST_LOCALIP_A);
 let kodak_back  = connect_camera(HOST_LOCALIP_B);
 

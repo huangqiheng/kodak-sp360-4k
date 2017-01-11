@@ -9,7 +9,6 @@ const TCPBase = require('tcp-base');
 const func = require('./global.js');
 const resp = require('./resp.js');
 
-
 class KodakWeb  {
 	constructor(options) {
 		this.options = Object.assign({}, {
@@ -117,72 +116,7 @@ class KodakWeb  {
 	}
 }	
 
-class AND_TCPBase extends TCPBase {
-	constructor(options) {
-		super(options);
-		this.localAddress = options.localAddress;
-	}
-
-	_connect(done) {
-		const addressKey = Symbol('address');
-
-		if (!done) {
-			done = () => this.ready(true);
-		}
-
-		const socket = this._socket = net.connect({
-			port: this.options.port, 
-			host: this.options.host,
-			localAddress: this.localAddress
-		});
-
-		socket.setNoDelay(this.options.noDelay);
-		socket.on('readable', () => {
-			this._lastReceiveDataTime = Date.now();
-			try {
-				let remaining = false;
-				do {
-					remaining = this._readPacket();
-				} while (remaining);
-			} catch (err) {
-				this.close(err);
-			}
-		});
-
-		// receive `end` event that means the other end of the socket sends a FIN packet
-		socket.once('end', () => {
-			this.logger.info('[tcp-base] the connection: %s is closed by other side', this[addressKey]);
-		});
-		socket.once('close', () => this._handleClose());
-		socket.once('error', err => {
-			err.message += ' (address: ' + this[addressKey] + ')';
-			this.close(err);
-		});
-
-		socket.once('connect', done);
-
-		if (this.options.needHeartbeat) {
-			this._heartbeatTimer = setInterval(() => {
-				const duration = this._lastHeartbeatTime - this._lastReceiveDataTime;
-				if (this._lastReceiveDataTime && duration > this.options.heartbeatInterval) {
-					const err = new Error(`server no response in ${duration}ms, maybe the socket is end on the other side.`);
-					err.name = 'ServerNoResponseError';
-					this.close(err);
-					return;
-				}
-				// flow control
-				if (this._invokes.size > 0 || !this.isOK) {
-					return;
-				}
-				this._lastHeartbeatTime = Date.now();
-				this.sendHeartBeat();
-			}, this.options.heartbeatInterval);
-		}
-	}
-
-}
-
-class KodakBase extends AND_TCPBase
+class KodakBase extends TCPBase
 {
 	constructor(options) {
 		assert(options.localAddress, 'options.localAddress is required');
@@ -199,6 +133,8 @@ class KodakBase extends AND_TCPBase
 		this.on('request', (entity) => {
 			if ((entity.header[0] !== 0x2b) && (entity.header[0] !== 0x2d)) {return;};
 			let id = this.getId(entity.header);
+
+			//print_hex(entity.packet, 'receive message:');
 			
 			//auto handle heartbeat
 			if (id === 0x07d2) {

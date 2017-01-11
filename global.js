@@ -58,8 +58,6 @@ global.get_config = function (callback) {
 			wifi_ssid: confs[9], //PIXPRO-SP360-4K_7B8B
 		};
 
-		config.cmd = (process.argv.length>2)? process.argv[2] : 'startweb';
-
 		callback(config);
 		server.close();
 	});
@@ -70,7 +68,7 @@ global.get_config = function (callback) {
 	let message = new Buffer('AOFQUERY:WIFILIB,1');
 	socket.send(message, 0, message.length, 5175, '172.16.0.255', (err) => {
 		if (err) {
-		       	console.log('AOFQUERY UDP message sent error.');
+			console.log('AOFQUERY UDP message sent error.', err);
 			process.exit(1);
 		}
 		socket.close();
@@ -79,25 +77,26 @@ global.get_config = function (callback) {
 
 
 global.call_base = function(object, method, args) {
-		var base = object.hasOwnProperty('_call_base_reference') ? object._call_base_reference : object,
-			object_current_method = base[method],
-			descriptor = null,
-			is_super = false,
-			output = null;
-		while (base !== undefined) {
-			descriptor = Object.getOwnPropertyDescriptor(base, method);
-			if (descriptor !== undefined) {
+	var base = object.hasOwnProperty('_call_base_reference') ? object._call_base_reference : object,
+	object_current_method = base[method],
+	descriptor = null,
+	is_super = false,
+	output = null;
+
+	while (base !== undefined) {
+		descriptor = Object.getOwnPropertyDescriptor(base, method);
+		if (descriptor !== undefined) {
 				if (descriptor.value === object_current_method) {
-					is_super = true;
+						is_super = true;
 				}
 				else if (is_super === true) {
-					object._call_base_reference = base;
-					output = descriptor.value.apply(object, args);
-					delete object._call_base_reference;
-					return output;
+						object._call_base_reference = base;
+						output = descriptor.value.apply(object, args);
+						delete object._call_base_reference;
+						return output;
 				}
-			}
-			base = Object.getPrototypeOf(base);
 		}
+		base = Object.getPrototypeOf(base);
 	}
+}
 
