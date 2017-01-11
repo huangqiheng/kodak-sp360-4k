@@ -30,6 +30,7 @@
     "merge": "^1.2.0",
     "nodejs-websocket": "^1.7.1",
     "prettyjson": "^1.2.0",
-    "tcp-base": "^1.0.1"
+    "tcp-base": "^1.0.1",
+    "xml2js": "^0.4.17"
   }
 }

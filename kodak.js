@@ -8,6 +8,7 @@ const assert = require('assert');
 const TCPBase = require('tcp-base');
 const func = require('./global.js');
 const resp = require('./resp.js');
+const parseString = require('xml2js').parseString;
 
 class KodakWeb  {
 	constructor(options) {
@@ -92,8 +93,9 @@ class KodakWeb  {
 	}
 
 	get_list(callback) {
+		var self = this;
 		request({
-			url: root_path + '/?custom=1',
+			url: this.root_path + '/?custom=1',
 			timeout: this.options.timeout,
 			localAddress: this.options.localAddress,
 		}, function (err, response, body) {
@@ -103,14 +105,14 @@ class KodakWeb  {
 					for (var i=0; i<result.LIST.FILECOUNT; i++) {
 						let file = result.LIST.ALLFile[0].File[i];
 						imgs.push({
-							path: root_path + file.FPATH,
+							path: self.root_path + file.FPATH,
 							timestamp: file.TIMECODE,
 						});
 					}
-					callback || callback(imgs);
+					callback && callback(imgs);
 				});
 			} else {
-				callback || callback(null);
+				callback && callback(null);
 			}
 		});
 	}
@@ -123,6 +125,7 @@ class KodakBase extends TCPBase
 
 		options.host = options.host || CAM_HOST;
 		options.port = options.port || CAM_CMD_PORT;
+		options.headerLength = 0x34;
 		options.needHeartbeat = false;
 
 		super(options);
@@ -131,11 +134,11 @@ class KodakBase extends TCPBase
 		this.SentEvent = new EventEmitter();
 
 		this.on('request', (entity) => {
+			print_hex(entity.packet, 'receive message:');
+			
 			if ((entity.header[0] !== 0x2b) && (entity.header[0] !== 0x2d)) {return;};
 			let id = this.getId(entity.header);
 
-			//print_hex(entity.packet, 'receive message:');
-			
 			//auto handle heartbeat
 			if (id === 0x07d2) {
 				process.nextTick(()=>{kodak.send(resp(id))});
@@ -485,6 +488,8 @@ class Kodak extends KodakBase{
 			}
 			done(err, result);
 		});
+		
+		return this;
 	}
 
 	open_website(done, is_photo=true) {
@@ -523,6 +528,8 @@ class Kodak extends KodakBase{
 
 			done(err, result);
 		});
+
+		return this;
 	}
 
 	take_snapshot(done) {
