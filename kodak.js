@@ -18,7 +18,8 @@ class KodakWeb  {
 			timeout: CAM_WEB_TIMEOUT,
 		}, options);
 
-		this.root_path = 'http://'+ this.options.host + ':' + this.options.port;
+		let port_str = (this.options.port == 80)? '' : (':'+this.options.port);
+		this.root_path = 'http://'+ this.options.host + port_str;
 
 		assert(this.options.localAddress, 'options.localAddress is required');
 	}
@@ -89,7 +90,7 @@ class KodakWeb  {
 				callback && callback(filename);
 			},
 		};
-		image_download(options);
+		this.image_download(options);
 	}
 
 	get_list(callback) {
@@ -104,12 +105,15 @@ class KodakWeb  {
 					let imgs = [];
 					for (var i=0; i<result.LIST.FILECOUNT; i++) {
 						let file = result.LIST.ALLFile[0].File[i];
+						let timecode = parseInt(file.TIMECODE[0]);
 						imgs.push({
 							path: self.root_path + file.FPATH,
-							timestamp: file.TIMECODE,
+							timestamp: timecode,
 						});
 					}
-					callback && callback(imgs);
+					callback && callback(imgs.sort((a,b)=>{
+						return a.timestamp - b.timestamp;
+					}));
 				});
 			} else {
 				callback && callback(null);
@@ -452,12 +456,10 @@ class Kodak extends KodakBase{
 			kodak.send(packet, (err,res)=> {process.nextTick(()=>{callback(err, res)})});
 		},
 
-		
 		function(res, callback) {
 			let packet = kodak.gen_XX03_118_packet(0x03ec);
 			kodak.send(packet, (err,res)=> {process.nextTick(()=>{callback(err, res)})});
 		},
-		
 
 		function(res, callback) {
 			let packet = kodak.gen_XX03_118_packet(0x03fc);
@@ -492,6 +494,9 @@ class Kodak extends KodakBase{
 		return this;
 	}
 
+	http_photos_ready(done) {return this.open_website(done);}
+	http_videos_ready(done) {return this.open_website(done, false);}
+
 	open_website(done, is_photo=true) {
 		done = done || function(){};
 		let kodak = this;
@@ -501,21 +506,6 @@ class Kodak extends KodakBase{
 			let packet = kodak.gen_E903_190_packet(cmd_id, 0x0003);
 			kodak.send(packet, (err,res)=> {callback(err, res)});
 		},
-
-/*
-		function(res, callback) {
-			Web.get_list((imgs)=> { callback(null,imgs)}, 1000);
-		},
-		function(res, callback) {
-			Web.get_list((imgs)=> { callback(null,imgs)}, 2000);
-		},
-		function(res, callback) {
-			res && callback(null, res);
-			res || Web.get_list((imgs)=> { 
-				callback(imgs? null : 'get_list error', imgs);
-			}, 3000);
-		},
-*/
 
 		],function (err, result) {
 			if (err) {
