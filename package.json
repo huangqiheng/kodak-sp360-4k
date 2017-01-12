@@ -25,11 +25,11 @@
   "dependencies": {
     "async": "^2.1.2",
     "hex": "^0.1.0",
-    "image-downloader": "^2.0.1",
     "json-ptr": "^1.0.1",
     "merge": "^1.2.0",
     "nodejs-websocket": "^1.7.1",
     "prettyjson": "^1.2.0",
+    "request": "^2.79.0",
     "tcp-base": "^1.0.1",
     "xml2js": "^0.4.17"
   }

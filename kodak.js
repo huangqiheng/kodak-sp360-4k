@@ -4,6 +4,8 @@ const EventEmitter = require('events');
 const async = require("async");
 const net = require("net");
 const request = require('request');
+const spawn = require('child_process').spawn;
+const fs = require('fs');  
 const assert = require('assert');
 const TCPBase = require('tcp-base');
 const func = require('./global.js');
@@ -24,100 +26,88 @@ class KodakWeb  {
 		assert(this.options.localAddress, 'options.localAddress is required');
 	}
 
-	image_download(options) {
-		function on_error(err, options) {
-			if (options.done) {
-				return options.done(err);
+	download(url, tofile, done) {
+		async.waterfall ([(callback) => {
+			done = done || function(){};
+			if (!url) {
+				callback('The request url is required');
+				return;
+			}
+			if (!tofile) {
+				callback('The save dest file is required');
 			}
 
-			throw err;
-		}
+			let req_opts = {
+				url: url, 
+				localAddress: this.options.localAddress,
+			};
+			callback(null, req_opts);
 
-		if (!options.url) {
-			throw new Error('The option url is required');
-		}
+		}, (res, callback) => {
+			let curl = spawn('curl', ['--interface', res.localAddress, '--output', tofile, res.url])
 
-		if (!options.dest) {
-			throw new Error('The option dest is required');
-		}
+			curl.stdout.on('data', (data) => { });
+			curl.stdout.on('end', (data) => {});
 
-		let req_opts = {
-			url: options.url, 
-			encoding: null
-		};
+			curl.on('error', (err) => {
+				callback('error: ' + err);
+			});
 
-		if (options.localAddress) {
-			req_opts.localAddress = options.localAddress;
-		} else {
-			req_opts.localAddress = this.options.localAddress;
-		}
-
-		request(req_opts, function (err, res, body) {
-			if (err) { 
-				on_error(err, options);
-			}
-
-			if (body && res.statusCode === 200) {
-				if (!path.extname(options.dest)) {
-					options.dest = path.join(options.dest, path.basename(options.url));
+			curl.on('exit', (code, signal) => {
+				if (code != 0) {
+					callback('Failed: ' + code + ' signal: ' + signal);
+				} else {
+					done(tofile);
 				}
+			});
 
-				fs.writeFile(options.dest, body, 'binary', function(err){
-					if (err) {
-						on_error(err, options);
-					}
-					options.done && options.done(false, options.dest, body)
-				});
-			} else {
-				if (!body) { 
-					on_error(new Error('Image loading error - empty body. URL: ' + options.url), options); 
-				} else { 
-					on_error(new Error('Image loading error - ' + res.statusCode + '. URL: ' + options.url), options); 
-				}
-			}
+		}], (err, res) => {
+			console.log(err);
 		});
 	}
 
-	get_image(url, tofile, callback) {
-		var options = {
-			url: url,
-			dest: tofile, // Save to /path/to/dest/image.jpg 
-			done: function(err, filename, image) {
-				if (err) {
-					throw err;
-				}
-				console.log('File saved to', filename);
-				callback && callback(filename);
-			},
-		};
-		this.image_download(options);
-	}
-
-	get_list(callback) {
+	get_list(done) {
 		var self = this;
-		request({
-			url: this.root_path + '/?custom=1',
-			timeout: this.options.timeout,
-			localAddress: this.options.localAddress,
-		}, function (err, response, body) {
-			if (!err && response.statusCode == 200) {
-				parseString(body, function (err, result) {
-					let imgs = [];
-					for (var i=0; i<result.LIST.FILECOUNT; i++) {
-						let file = result.LIST.ALLFile[0].File[i];
-						let timecode = parseInt(file.TIMECODE[0]);
-						imgs.push({
-							path: self.root_path + file.FPATH,
-							timestamp: timecode,
-						});
-					}
-					callback && callback(imgs.sort((a,b)=>{
-						return a.timestamp - b.timestamp;
-					}));
-				});
-			} else {
-				callback && callback(null);
-			}
+		done = done || function(){};
+
+		async.waterfall([(callback)=> {
+			request({url: self.root_path + '/?custom=1',
+				 timeout: self.options.timeout,
+				 localAddress: self.options.localAddress,
+			}, function (err, response, body) {
+				if (!err && response.statusCode == 200) {
+					callback(null, body);
+				} else {
+					callback('request error');
+				}
+			});
+
+		}, (res, callback) => {
+			parseString(res, (err, result) => {
+				if (err) {
+					callback(err);
+					return;
+				}
+				let imgs = [];
+				for (var i=0; i<result.LIST.FILECOUNT; i++) 
+				{
+					let file = result.LIST.ALLFile[0].File[i];
+					let timecode = parseInt(file.TIMECODE[0]);
+					let name = file.NAME;
+
+					imgs.push({
+						name: name,
+						path: self.root_path + file.FPATH,
+						timecode: timecode,
+					});
+				}
+				done(imgs.sort((a,b)=>{
+					return a.timecode - b.timecode;
+				}));
+			});
+
+		}], (err, result) => {
+			console.log(err);
 		});
 	}
 }	
@@ -482,12 +472,7 @@ class Kodak extends KodakBase{
 		},
 
 		],function (err, result) {
-			if (err) {
-				console.error(err);
-				let packet = kodak.gen_E903_190_packet(0x0800, 0x0002);
-				print_hex(packet.data, 'service_on_ready failure and offline:');
-				kodak.send(packet, (err, res) => {});
-			}
+			err && console.error(err);
 			done(err, result);
 		});
 		
@@ -499,85 +484,66 @@ class Kodak extends KodakBase{
 
 	open_website(done, is_photo=true) {
 		done = done || function(){};
-		let kodak = this;
+		let cmd_id = is_photo? 0x2400 : 0x4400;
+		let packet = this.gen_E903_190_packet(cmd_id, 0x0003);
+		this.send(packet, done);
+		return this;
+	}
+
+	take_snapshot(done) {
+		done = done || function(){};
+		let self = this;
 
 		async.waterfall([function(callback) {
-			let cmd_id = is_photo? 0x2400 : 0x4400;
-			let packet = kodak.gen_E903_190_packet(cmd_id, 0x0003);
-			kodak.send(packet, (err,res)=> {callback(err, res)});
-		},
+			let packet = self.gen_E903_190_packet(0x0008, 0x0003);
+			self.send(packet, (err, res) => {});
 
-		],function (err, result) {
-			if (err) {
-				console.error(err);
+			self.SentEvent.once(self.getName(0x0bba), (entity)=>{
+				self.send(resp(0x0bba), (err, res)=>{
+					callback(err, res);
+				});
+			});
 
-				let packet = kodak.gen_E903_190_packet(0x0800, 0x0002);
-				print_hex(packet.data, 'open_website offline: (' + (is_photo? 'photo':'video') + ')');
-				kodak.send(packet, (err, res) => {});
-			}
+		}, (res, callback) => {
+			let packet = self.gen_ED03_146_packet(0x0006);
+			print_hex(packet.data, 'send capture picture mode:');
+			self.send(packet, (err, res) => {
+				print_hex(res, 'recv response3:');
+				callback(err, res);
+			});
 
+		}, (res, callback) => {
+			let packet = self.gen_ED03_174_packet();
+			print_hex(packet.data, 'send capture picture size:');
+			self.send(packet, (err, res) => {
+				print_hex(res, 'recv response4:');
+				callback(err, res);
+			});
+
+		}, (res, callback) => {
+			let packet = self.gen_EF03_150_packet();
+			print_hex(packet.data, 'send capture snapshot:');
+			self.send(packet, (err, res) => {
+				print_hex(res, 'recv response snapshot:');
+				callback(err, 'done');
+			});
+
+		},],(err, result) => {
+			err && console.error(err);
 			done(err, result);
 		});
 
 		return this;
 	}
 
-	take_snapshot(done) {
+	set_offline(done) {
 		done = done || function(){};
-		let kodak = this;
-
-		async.waterfall([function(callback) {
-			let packet = kodak.gen_E903_190_packet(0x0008, 0x0003);
-			kodak.send(packet, (err, res) => {});
-
-			kodak.SentEvent.once(kodak.getName(0x0bba), (entity)=>{
-				kodak.send(resp(0x0bba), (err, res)=>{
-					callback(err, res);
-				});
-			});
-		},
-
-
-		function(res, callback) {
-			let packet = kodak.gen_ED03_146_packet(0x00000006);
-			print_hex(packet.data, 'send capture picture mode:');
-			kodak.send(packet, (err, res) => {
-				print_hex(res, 'recv response3:');
-				callback(err, res);
-			});
-		},
-
-		function(res, callback) {
-			let packet = kodak.gen_ED03_174_packet();
-			print_hex(packet.data, 'send capture picture size:');
-			kodak.send(packet, (err, res) => {
-				print_hex(res, 'recv response4:');
-				callback(err, res);
-			});
-		},
-
-		function(res, callback) {
-			let packet = kodak.gen_EF03_150_packet();
-			print_hex(packet.data, 'send capture snapshot:');
-			kodak.send(packet, (err, res) => {
-				print_hex(res, 'recv response snapshot:');
-				callback(err, res);
-			});
-		},
-
-		],function (err, result) {
-			if (err) {
-				console.error(err);
-			}
-
-			let packet = kodak.gen_E903_190_packet(0x00000800, 0x00000002);
-			print_hex(packet.data, 'send client offline:');
-			kodak.send(packet, (err, res) => {
-				print_hex(res, 'recv response offline:');
-				done(result);
-			});
-		});
+		let packet = this.gen_E903_190_packet(0x0800, 0x0002);
+		print_hex(packet.data, 'set offline:');
+		this.send(packet, don);
+		return  this;
 	}
+
 }
 
 module.exports = [Kodak, KodakWeb];

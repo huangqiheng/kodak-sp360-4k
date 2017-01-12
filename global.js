@@ -65,6 +65,10 @@ global.get_config = function (callback) {
 
 	let socket = dgram.createSocket("udp4");
 
+	socket.bind(() => {
+		socket.setBroadcast(true);
+	});
+
 	let message = new Buffer('AOFQUERY:WIFILIB,1');
 	socket.send(message, 0, message.length, 5175, '172.16.0.255', (err) => {
 		if (err) {
