@@ -6,15 +6,41 @@ const url = require('url');
 const path = require('path');
 const [Kodak,KodakWeb] = require('./kodak.js');
 
+console.log(process.argv);
+let cmd = process.argv[2];
 
-//let kodak_front = connect_camera(HOST_LOCALIP_A);
+let kodak_front = connect_camera(HOST_LOCALIP_A);
+
+if (cmd === 'snap') {
+	snapshot_action(kodak_front, (err, result) => {
+		console.log('snapshot action: ', result);
+		kodak_front.set_offline(()=>{
+			process.exit(0);
+		});
+	});
+} else {
+	get_lastest_photo(kodak_front, (err, result) => {
+		console.log('b photo: ', result);
+		kodak_front.set_offline(()=>{
+			process.exit(0);
+		});
+	});
+}
+
+return; //////////////////////////////////////
+
 let kodak_back  = connect_camera(HOST_LOCALIP_B);
+get_lastest_photo(kodak_back, (err, result) => {
+	console.log('b photo: ', result);
+});
+
+return; //////////////////////////////////////
 
 snapshot(kodak_back, (err, result) => {
 	console.log('snapshot', result);
 });
 
-function snapshot(kodak, done)
+function snapshot_action(kodak, done)
 {
 	done = done || function(){};
 
@@ -58,9 +84,12 @@ function get_lastest_photo(kodak, done)
 
 	}, (res, callback) => {
 		console.log('(3) try got image list.');
-		kodak.web.get_list((imgs)=> { 
-			imgs && callback(null, imgs);
-			imgs || callback('get image list error');
+		kodak.web.get_list((err, imgs)=> { 
+			if (imgs.length===0) {
+				callback('not found image');
+			} else {
+				callback(null, imgs);
+			}
 		});
 
 	}, (res, callback) => {

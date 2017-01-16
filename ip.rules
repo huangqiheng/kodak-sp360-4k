@@ -1,0 +1,16 @@
+#!/bin/bash
+
+ip route flush table 101
+ip rule del from 172.16.0.101 lookup 101
+ip route del 172.16.0.0/24 dev wlan1 table main
+ip route add 172.16.0.0/24 dev wlan1 proto kernel scope link src 172.16.0.101 table 101
+ip rule add from 172.16.0.101 lookup 101
+ip route flush cache
+
+ip route flush table 102
+ip rule del from 172.16.0.102 lookup 102
+ip route del 172.16.0.0/24 dev wlan2 table main
+ip route add 172.16.0.0/24 dev wlan2 proto kernel scope link src 172.16.0.102 table 102
+ip rule add from 172.16.0.102 lookup 102
+ip route flush cache
+
