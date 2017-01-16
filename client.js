@@ -6,43 +6,54 @@ const url = require('url');
 const path = require('path');
 const [Kodak,KodakWeb] = require('./kodak.js');
 
-console.log(process.argv);
-let cmd = process.argv[2];
 
-let kodak_front = connect_camera(HOST_LOCALIP_A);
+switch (process.argv[2]) {
+case 'a':
+	console.log('use interface: ' + HOST_LOCALIP_A);
+	snapshot(HOST_LOCALIP_A, (err, result) => {
+		console.log('photo A: ', result);
+		process.exit(0);
+	});
+	break;
+case 'b':
+	console.log('use interface: ' + HOST_LOCALIP_B);
+	snapshot(HOST_LOCALIP_B, (err, result) => {
+		console.log('photo B: ', result);
+		process.exit(0);
+	});
+	break;
+default:
+	let snaper = [];
 
-if (cmd === 'snap') {
-	snapshot_action(kodak_front, (err, result) => {
-		console.log('snapshot action: ', result);
-		kodak_front.set_offline(()=>{
-			process.exit(0);
-		});
-	});
-} else {
-	get_lastest_photo(kodak_front, (err, result) => {
-		console.log('b photo: ', result);
-		kodak_front.set_offline(()=>{
-			process.exit(0);
-		});
-	});
+	function trigger(snap)
+	{
+		snaper.push(snap);
+		console.log('got one snap');
+		if (snaper.length === 2) {
+			console.log('have two snaper');
+			for (snap_item of snaper) {
+				snap_item();
+			}
+		}
+	}
+
+	snapshot(HOST_LOCALIP_A, (err, result) => {
+		console.log('photo A: ', result);
+		process.exit(0);
+	}, trigger);
+
+	snapshot(HOST_LOCALIP_B, (err, result) => {
+		console.log('photo B: ', result);
+		process.exit(0);
+	}, trigger);
 }
 
-return; //////////////////////////////////////
 
-let kodak_back  = connect_camera(HOST_LOCALIP_B);
-get_lastest_photo(kodak_back, (err, result) => {
-	console.log('b photo: ', result);
-});
-
-return; //////////////////////////////////////
-
-snapshot(kodak_back, (err, result) => {
-	console.log('snapshot', result);
-});
-
-function snapshot_action(kodak, done)
+function snapshot(inet_addr, done, wait)
 {
 	done = done || function(){};
+
+	let kodak = connect_camera(inet_addr);
 
 	async.waterfall([(callback) => {
 		console.log('(1) make sure service ready.');
@@ -56,37 +67,20 @@ function snapshot_action(kodak, done)
 		kodak.take_snapshot((err, res)=> {
 			err && callback('take_snapshot, error!');
 			err || callback(null, res);
-		});
-
-	}], (err, result) => {
-		err && console.log(err);
-		done(err, result);
-	});
-}
-
-function get_lastest_photo(kodak, done)
-{
-	done = done || function(){};
-
-	async.waterfall ([(callback) => {
-		console.log('(1) make sure service ready.');
-		kodak.service_on_ready((err, res)=> {
-			err && callback('service not ready, error!');
-			err || callback(null, res);
-		});
+		}, wait);
 
 	}, (res, callback) => {
-		console.log('(2) try open photo website.');
+		console.log('(3) try open photo website.');
 		kodak.http_photos_ready((err, res)=> {
 			err && callback('open photo website error!');
 			err || callback(null, res);
 		});
 
 	}, (res, callback) => {
-		console.log('(3) try got image list.');
+		console.log('(4) try got image list.');
 		kodak.web.get_list((err, imgs)=> { 
 			if (imgs.length===0) {
-				callback('not found image');
+				callback('not found images');
 			} else {
 				callback(null, imgs);
 			}
@@ -94,16 +88,19 @@ function get_lastest_photo(kodak, done)
 
 	}, (res, callback) => {
 		let news = res.pop();
-		console.log('(4) download ', news.path);
+		console.log('(5) download ', news.path);
 		let img_file = __dirname + '/cache/' + path.basename(news.path) + '.jpg';
 
-		kodak.web.download(news.path, img_file, (filename)=>{
-			callback(null, filename);
+		kodak.web.download(news.path, img_file, (err, res)=>{
+			callback(err, res);
 		});
 
-	}],(err, result) => {
+	}], (err, result) => {
 		err && console.log(err);
-		done(err, result);
+
+		kodak.set_offline(()=>{
+			done(err, result);
+		});
 	});
 }
 

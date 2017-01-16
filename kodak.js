@@ -48,7 +48,7 @@ class KodakBase extends TCPBase
 			if ([0x0bba,0x0bb9,0x0bbb].indexOf(id) !== -1) {
 				process.nextTick(()=>{
 					self.send(resp(id),()=>{
-						console.log('seens operation(0x'+hexval(id)+') complete.');
+						//console.log('seens operation(0x'+hexval(id)+') complete.');
 						this.SentEvent.emit(self.getName(id), entity);
 					});
 				});
@@ -346,11 +346,20 @@ class Kodak extends KodakBase{
 			let packet = self.gen_E903_190_packet(0x0002, 0x0001);
 			self.send(packet, (err, res) => {});
 
+			let is_action = false;
 			self.SentEvent.once(self.getName(0x7d1), (entity)=>{
+				if (is_action) return;
+				is_action = true;
 				self.send(resp(0x7d1), (err, res)=>{
 					process.nextTick(()=>{callback(err, res)});
 				});
 			});
+
+			setTimeout(()=>{
+				if (is_action) return;
+				is_action = true;
+				process.nextTick(()=>{callback(null, 'done')});
+			}, 100);
 
 		},function(res, callback) {
 			let packet = self.gen_XX03_118_packet(0x03ea);
@@ -395,8 +404,9 @@ class Kodak extends KodakBase{
 		return this;
 	}
 
-	take_snapshot(done) {
+	take_snapshot(done, wait) {
 		done = done || function(){};
+		wait = wait || function(cb){cb()};
 		let self = this;
 
 		async.waterfall([function(callback) {
@@ -407,33 +417,21 @@ class Kodak extends KodakBase{
 
 		}, (res, callback) => {
 			let packet = self.gen_ED03_146_packet(0x0006);
-			print_hex(packet.data, 'send capture picture mode:');
-			self.send(packet, (err, res) => {
-				print_hex(res, 'recv response3:');
-				callback(err, res);
-			});
+			self.send(packet, (err, res) => {callback(err, res)});
 
 		}, (res, callback) => {
 			let packet = self.gen_ED03_174_packet();
-			print_hex(packet.data, 'send capture picture size:');
-			self.send(packet, (err, res) => {
-				print_hex(res, 'recv response4:');
-				callback(err, res);
-			});
+			self.send(packet, (err, res) => {callback(err, res)});
 
 		}, (res, callback) => {
-			let packet = self.gen_EF03_150_packet();
-			print_hex(packet.data, 'send capture snapshot:');
-			self.send(packet, (err, res) => {
-				print_hex(res, 'recv response snapshot:');
-				callback(err, 'done');
+			wait(()=> {
+				let packet = self.gen_EF03_150_packet(); //trigger the action
+				self.send(packet, (err, res) => {callback(err, 'done')});
 			});
 
 		}, (res, callback) => {
 			self.SentEvent.once(self.getName(0x0bbb), (entity)=>{
-				process.nextTick(()=>{
-					callback(null, 'done');
-				});
+				process.nextTick(()=>{callback(null, 'done')});
 			});
 
 		},],(err, result) => {
@@ -447,7 +445,6 @@ class Kodak extends KodakBase{
 	set_offline(done) {
 		done = done || function(){};
 		let packet = this.gen_E903_190_packet(0x0800, 0x0002);
-		print_hex(packet.data, 'set offline:');
 		this.send(packet, done);
 		return  this;
 	}
@@ -486,7 +483,7 @@ class KodakWeb  {
 			callback(null, req_opts);
 
 		}, (res, callback) => {
-			let curl = spawn('curl', ['--interface', res.localAddress, '--output', tofile, res.url])
+			let curl = spawn('curl', ['--interface', iface[res.localAddress], '--output', tofile, res.url])
 
 			curl.stdout.on('data', (data) => { });
 			curl.stdout.on('end', (data) => {});
@@ -499,12 +496,16 @@ class KodakWeb  {
 				if (code != 0) {
 					callback('Failed: ' + code + ' signal: ' + signal);
 				} else {
-					done(tofile);
+					if (fs.existsSync(tofile)) {
+						callback(null, tofile);
+					} else {
+						callback('Failed: File not exists');
+					}
 				}
 			});
 
 		}], (err, res) => {
-			console.log(err);
+			done(err, res);
 		});
 	}
 
@@ -513,6 +514,22 @@ class KodakWeb  {
 		done = done || function(){};
 
 		async.waterfall([(callback)=> {
+			let url = self.root_path + '/?custom=1';
+			let tofile = __dirname + '/cache/'+self.options.localAddress+'_custom.xml'; 
+			fs.unlink(tofile, (err)=>{
+				this.download(url, tofile, (err, res) => {
+					if (!err) {
+						let body = fs.readFileSync(tofile, 'utf-8');
+						callback(null, body);
+					} else {
+						callback('download list error');
+					}
+
+				});
+			});
+			return;
+
+			//fixme
 			request({url: self.root_path + '/?custom=1',
 				 timeout: self.options.timeout,
 				 localAddress: self.options.localAddress,
@@ -525,6 +542,7 @@ class KodakWeb  {
 			});
 
 		}, (res, callback) => {
+			console.log(res);
 			parseString(res, (err, result) => {
 				if (err) {
 					callback(err);
@@ -536,7 +554,7 @@ class KodakWeb  {
 					let file = result.LIST.ALLFile[0].File[i];
 					let timecode = parseInt(file.TIMECODE[0]);
 					let name = file.NAME[0];
-					let index = parseInt(path.basename(name,'.JPG').split('_')[1]);
+					let index = parseInt(path.basename(name,'.JPG').replace('_',''));
 
 					imgs.push({
 						name: name,
