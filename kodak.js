@@ -27,6 +27,7 @@ class KodakBase extends TCPBase
 		super(options);
 		let self = this;
 
+		this.camera_number = options.localAddress.split('.')[3];
 		this.SentEvent = new EventEmitter();
 
 		this.on('request', (entity) => {
@@ -48,8 +49,8 @@ class KodakBase extends TCPBase
 			if ([0x0bba,0x0bb9,0x0bbb].indexOf(id) !== -1) {
 				process.nextTick(()=>{
 					self.send(resp(id),()=>{
-						//console.log('seens operation(0x'+hexval(id)+') complete.');
-						this.SentEvent.emit(self.getName(id), entity);
+						self.log('operation(0x'+hexval(id)+') complete.');
+						self.SentEvent.emit(self.getName(id), entity);
 					});
 				});
 				return;
@@ -63,6 +64,14 @@ class KodakBase extends TCPBase
 			this.SentEvent.emit(self.getName(id), entity);
 		});
 	}
+
+	log(msg) {
+		let d = new Date();
+		let sec = ('0'+d.getSeconds()).slice(-2);
+		let msec = ('00'+d.getMilliseconds()).slice(-3);
+		console.log('['+sec+':'+msec+']'+this.camera_number + '  ' + msg);
+	}
+
 
 	gen_FF03_370_packet() {
 		let packet = new Buffer([ 
@@ -336,7 +345,29 @@ class KodakBase extends TCPBase
 	}
 }
 
-class Kodak extends KodakBase{
+class Kodak extends KodakBase
+{
+	wait_packet(id, timeout, callback) {
+		let is_action = false;
+		this.SentEvent.once(this.getName(id), (entity)=>{
+			if (is_action) return;
+			is_action = true;
+			process.nextTick(()=>{
+				callback();
+			});
+		});
+
+		if (!timeout) return;
+
+		setTimeout(()=>{
+			if (is_action) return;
+			is_action = true;
+			process.nextTick(()=>{
+				this.log('packet('+hexval(id)+') timeout callback');
+				callback();
+			});
+		}, timeout);
+	}
 
 	service_on_ready(done) {
 		done = done || function(){};
@@ -347,7 +378,7 @@ class Kodak extends KodakBase{
 			self.send(packet, (err, res) => {});
 
 			let is_action = false;
-			self.SentEvent.once(self.getName(0x7d1), (entity)=>{
+			self.SentEvent.once(self.getName(0x07d1), (entity)=>{
 				if (is_action) return;
 				is_action = true;
 				self.send(resp(0x7d1), (err, res)=>{
@@ -358,8 +389,11 @@ class Kodak extends KodakBase{
 			setTimeout(()=>{
 				if (is_action) return;
 				is_action = true;
-				process.nextTick(()=>{callback(null, 'done')});
-			}, 100);
+				process.nextTick(()=>{
+					console.log('service timeout callback');
+					callback(null, 'done');
+				});
+			}, 200);
 
 		},function(res, callback) {
 			let packet = self.gen_XX03_118_packet(0x03ea);
@@ -387,7 +421,9 @@ class Kodak extends KodakBase{
 
 		}],function (err, result) {
 			err && console.error(err);
-			done(err, result);
+			process.nextTick(()=>{
+				done(err, result);
+			});
 		});
 		
 		return this;
@@ -400,7 +436,13 @@ class Kodak extends KodakBase{
 		done = done || function(){};
 		let cmd_id = is_photo? 0x2400 : 0x4400;
 		let packet = this.gen_E903_190_packet(cmd_id, 0x0003);
-		this.send(packet, done);
+
+		this.send(packet, (err, res)=>{
+			this.wait_packet(0x0bba, 200, ()=>{
+				done();
+			});
+		});
+
 		return this;
 	}
 
@@ -410,29 +452,40 @@ class Kodak extends KodakBase{
 		let self = this;
 
 		async.waterfall([function(callback) {
+			self.log('send e903_190 packet');
 			let packet = self.gen_E903_190_packet(0x0008, 0x0003);
 			self.send(packet, (err, res) => {
 				setTimeout(()=> {callback(err, res)}, 100);
 			});
 
 		}, (res, callback) => {
+			self.log('send ed03_146 packet');
 			let packet = self.gen_ED03_146_packet(0x0006);
 			self.send(packet, (err, res) => {callback(err, res)});
 
 		}, (res, callback) => {
+			self.wait_packet(0x0bba, 200, ()=>{callback(null,'done')});
+
+		}, (res, callback) => {
+			self.log('send ed03_174 packet');
 			let packet = self.gen_ED03_174_packet();
 			self.send(packet, (err, res) => {callback(err, res)});
 
 		}, (res, callback) => {
+			self.wait_packet(0x0bba, 200, ()=>{callback(null,'done')});
+
+		}, (res, callback) => {
 			wait(()=> {
-				let packet = self.gen_EF03_150_packet(); //trigger the action
-				self.send(packet, (err, res) => {callback(err, 'done')});
+				//trigger the action
+				let packet = self.gen_EF03_150_packet(); 
+				self.send(packet, (err, res) => {
+					err && self.log('snapshot action error');
+					callback(err, 'done')
+				});
 			});
 
 		}, (res, callback) => {
-			self.SentEvent.once(self.getName(0x0bbb), (entity)=>{
-				process.nextTick(()=>{callback(null, 'done')});
-			});
+			self.wait_packet(0x0bbb, null, ()=>{callback(null,'done')});
 
 		},],(err, result) => {
 			err && console.error(err);
@@ -445,7 +498,10 @@ class Kodak extends KodakBase{
 	set_offline(done) {
 		done = done || function(){};
 		let packet = this.gen_E903_190_packet(0x0800, 0x0002);
-		this.send(packet, done);
+		this.send(packet, (err,res)=>{
+			this.log('had sent offline.');
+			done();
+		});
 		return  this;
 	}
 
@@ -453,6 +509,8 @@ class Kodak extends KodakBase{
 
 class KodakWeb  {
 	constructor(options) {
+		assert(options.localAddress, 'options.localAddress is required');
+
 		this.options = Object.assign({}, {
 			host:  CAM_HOST,
 			port: CAM_WEB_PORT,
@@ -461,18 +519,27 @@ class KodakWeb  {
 
 		let port_str = (this.options.port == 80)? '' : (':'+this.options.port);
 		this.root_path = 'http://'+ this.options.host + port_str;
-
-		assert(this.options.localAddress, 'options.localAddress is required');
+		this.camera_number =  options.localAddress.split('.')[3];
 	}
 
-	download(url, tofile, done) {
+	log(msg) {
+		let d = new Date();
+		console.log('['+d.getSeconds()+':'+d.getMilliseconds()+']'
+			+this.camera_number + '  ' + msg);
+	}
+
+	format_filename(file) {
+		return path.dirname(file) + '/' + this.camera_number + '_' + path.basename(file);
+	}
+
+	download(url, filename, done) {
 		async.waterfall ([(callback) => {
 			done = done || function(){};
 			if (!url) {
 				callback('The request url is required');
 				return;
 			}
-			if (!tofile) {
+			if (!filename) {
 				callback('The save dest file is required');
 			}
 
@@ -483,6 +550,7 @@ class KodakWeb  {
 			callback(null, req_opts);
 
 		}, (res, callback) => {
+			let tofile = this.format_filename(__dirname + '/cache/'+filename); 
 			let curl = spawn('curl', ['--interface', iface[res.localAddress], '--output', tofile, res.url])
 
 			curl.stdout.on('data', (data) => { });
@@ -515,11 +583,12 @@ class KodakWeb  {
 
 		async.waterfall([(callback)=> {
 			let url = self.root_path + '/?custom=1';
-			let tofile = __dirname + '/cache/'+self.options.localAddress+'_custom.xml'; 
+			let filename = 'custom.xml';
+			let tofile = this.format_filename(__dirname + '/cache/' + filename); 
 			fs.unlink(tofile, (err)=>{
-				this.download(url, tofile, (err, res) => {
+				this.download(url, filename, (err, res) => {
 					if (!err) {
-						let body = fs.readFileSync(tofile, 'utf-8');
+						let body = fs.readFileSync(res, 'utf-8');
 						callback(null, body);
 					} else {
 						callback('download list error');
@@ -527,22 +596,8 @@ class KodakWeb  {
 
 				});
 			});
-			return;
-
-			//fixme
-			request({url: self.root_path + '/?custom=1',
-				 timeout: self.options.timeout,
-				 localAddress: self.options.localAddress,
-			}, function (err, response, body) {
-				if (!err && response.statusCode == 200) {
-					callback(null, body);
-				} else {
-					callback('request error');
-				}
-			});
 
 		}, (res, callback) => {
-			console.log(res);
 			parseString(res, (err, result) => {
 				if (err) {
 					callback(err);

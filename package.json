@@ -24,13 +24,14 @@
   "homepage": "https://github.com/huangqiheng/kodak-sp360-4k#readme",
   "dependencies": {
     "async": "^2.1.2",
+    "ffi": "^2.2.0",
     "hex": "^0.1.0",
     "json-ptr": "^1.0.1",
     "merge": "^1.2.0",
     "nodejs-websocket": "^1.7.1",
     "prettyjson": "^1.2.0",
     "request": "^2.79.0",
-    "tcp-base": "^1.0.1",
+    "tcp-base": "huangqiheng/tcp-base",
     "wireless": "^0.3.2",
     "xml2js": "^0.4.17"
   }
