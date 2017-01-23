@@ -1,12 +1,15 @@
 #!/bin/bash
 
+left_img=101_S0JA0010000048L0.jpg 
+right_img=102_S0JA0010000056L0.jpg
+output_img=out.jpg
+
 init_install () {
 	apt install -y hugin-tools
 	apt install -y enblend
 	apt install -y libav-tools
 }
 
-cd cache
 
 create_pto () {
 	pto_gen -p 2 -f 235 -o kodak.pto 101_S0JA0010000056L0.jpg 102_S0JA0010000056L0.jpg
@@ -19,14 +22,12 @@ create_pto () {
 }
 
 run_nona () {
-	nona -z 90 -r ldr -m JPEG -i 0 -o left_eye.tif kodak.pto 101_S0JA0010000056L0.jpg 102_S0JA0010000056L0.jpg
-	nona -z 90 -r ldr -m JPEG -i 1 -o right_eye.tif kodak.pto 101_S0JA0010000056L0.jpg 102_S0JA0010000056L0.jpg
-	cp left_eye.jpg /media/cdrom/
-	cp right_eye.jpg /media/cdrom/
+	nona -z LZW -r ldr -m TIFF_m -o out -i 0 kodak.pto $left_img $right_img
+	nona -z LZW -r ldr -m TIFF_m -o out -i 1 kodak.pto $left_img $right_img
+	enblend -o $output_img --compression=100 out0000.tif out0001.tif
+	cp $output_img /media/cdrom/
 }
 
-	nona -z 90 -r ldr -m JPEG -i 0 -o left_eye.jpg kodak.pto 101_S0JA0010000056L0.jpg 102_S0JA0010000056L0.jpg
-	nona -z 90 -r ldr -m JPEG -i 1 -o right_eye.jpg kodak.pto 101_S0JA0010000056L0.jpg 102_S0JA0010000056L0.jpg
-
-//enblend -o out.jpg left_eye.jpg right_eye.jpg
+cd cache
+run_nona
 

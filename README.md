@@ -1,5 +1,10 @@
 # kodak-sp360-4k
 
+git clone https://github.com/huangqiheng/kodak-sp360-4k.git
+cd kodak-sp360-4k
+npm install
+npm install http-server -g
+
 
 vim /etc/network/interface
 ```
