@@ -1,13 +1,26 @@
 'use strict';
 
-const http = require("http");
+const httpServer = require("http-server");
 const ws = require("nodejs-websocket");
 const fs = require("fs");
 const ptr = require('json-ptr');
 const merge = require('merge');
+const path = require('path');
 
-http.createServer(function (req, res) {
-	fs.createReadStream("index.html").pipe(res);
+httpServer.createServer(function (req, res) {
+	let file_name;
+
+	switch(req.url) {
+	  case '/': 
+	  case '/index.html': 
+		file_name = '/index.html';
+		break;
+	  default: 
+		file_name = '/index.html';
+	}
+
+	file_name = __dirname + '/public' + file_name;
+	fs.createReadStream(file_name).pipe(res);
 }).listen(8080);
 
 let server = ws.createServer(function (conn) {
