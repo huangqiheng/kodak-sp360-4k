@@ -7,23 +7,7 @@ const ptr = require('json-ptr');
 const merge = require('merge');
 const path = require('path');
 
-httpServer.createServer(function (req, res) {
-	let file_name;
-
-	switch(req.url) {
-	  case '/': 
-	  case '/index.html': 
-		file_name = '/index.html';
-		break;
-	  default: 
-		file_name = '/index.html';
-	}
-
-	file_name = __dirname + '/public' + file_name;
-	fs.createReadStream(file_name).pipe(res);
-}).listen(8080);
-
-let server = ws.createServer(function (conn) {
+ws.createServer(function (conn) {
 	conn.client_name = null;
 	conn.on("text", function (str) {
 		let req = parse(str);
@@ -57,9 +41,14 @@ let server = ws.createServer(function (conn) {
 			res_ok(conn, req);
 		}
 	});
-});
+}).listen(8081);
 
-server.listen(8081);
+httpServer.createServer({
+	root: './public',
+	ext: 'html',
+	cache: 1, //development
+	cors: true
+}).listen(8080);
 
 function res_err(conn, req, err_str) {
 	let res = {};
