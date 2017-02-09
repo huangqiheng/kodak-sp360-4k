@@ -7,7 +7,7 @@ const ptr = require('json-ptr');
 const merge = require('merge');
 const path = require('path');
 
-ws.createServer(function (conn) {
+var server = ws.createServer(function (conn) {
 	conn.client_name = null;
 	conn.on("text", function (str) {
 		let req = parse(str);
@@ -43,7 +43,7 @@ ws.createServer(function (conn) {
 	});
 }).listen(8081);
 
-httpServer.createServer({
+var website = httpServer.createServer({
 	root: './public',
 	ext: 'html',
 	cache: 1, //development

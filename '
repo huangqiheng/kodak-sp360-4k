@@ -9,7 +9,7 @@ const [Kodak,KodakWeb] = require('./kodak.js');
 
 //check if it's calling this script file directly
 if (process.argv[1] === __filename) {
-	switch (process.argv[2].toLowerCase()) {
+	switch (process.argv[2]) {
 	case 'a':
 		snapshot(HOST_LOCALIP_A, (err, result) => {
 			console.log('photo A: ', result);
@@ -23,15 +23,30 @@ if (process.argv[1] === __filename) {
 		});
 		break;
 	case 'ab':
-	case 'ba':
-		snapshot_photos((paths)=>{
-			if (paths) {
-				console.log('photo A: ', paths[0]);
-				console.log('photo B: ', paths[1]);
-			} else {
-				console.log('error.');
+		let snaper = [];
+		let outputs = [];
+
+		function trigger(snap){
+			snaper.push(snap);
+			if (snaper.length === 2) {
+				console.log('have two trigger, then action.');
+				for (let snap_item of snaper) {
+					snap_item();
+				}
 			}
-		});
+		}
+
+		snapshot(HOST_LOCALIP_A, (err, result) => {
+			outputs.push(result);
+			console.log('photo A: ', result);
+			(outputs.length===2) && process.exit(0);
+		}, trigger);
+
+		snapshot(HOST_LOCALIP_B, (err, result) => {
+			outputs.push(result);
+			console.log('photo B: ', result);
+			(outputs.length===2) && process.exit(0);
+		}, trigger);
 		break;
 	default:
 	}
@@ -39,11 +54,10 @@ if (process.argv[1] === __filename) {
 	module.exports = snapshot_photos;
 }
 
-function snapshot_photos(done)
+function snapshot_photos()
 {
 	let snaper = [];
 	let outputs = [];
-	let has_return = false;
 
 	function trigger(snap){
 		snaper.push(snap);
@@ -55,9 +69,8 @@ function snapshot_photos(done)
 		}
 	}
 
-	function result_paths(paths){
-		has_return || done(paths);
-		has_return = true;
+	function result_paths(err){
+
 	}
 
 	snapshot(HOST_LOCALIP_A, (err, result) => {
@@ -66,7 +79,7 @@ function snapshot_photos(done)
 		}
 		outputs.push(result);
 		(outputs.length===2) && result_paths(outputs);
-		//console.log('photo A: ', result);
+		console.log('photo A: ', result);
 	}, trigger);
 
 	snapshot(HOST_LOCALIP_B, (err, result) => {
@@ -75,7 +88,7 @@ function snapshot_photos(done)
 		}
 		outputs.push(result);
 		(outputs.length===2) && result_paths(outputs);
-		//console.log('photo B: ', result);
+		console.log('photo B: ', result);
 	}, trigger);
 
 }
