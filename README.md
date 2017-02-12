@@ -1,10 +1,21 @@
 # kodak-sp360-4k
 
+## initial install
+
+```
+apt update && apt upgrade
+apt install python
+
+curl -sL https://deb.nodesource.com/setup_7.x | sudo -E bash -
+apt install nodejs
+
 git clone https://github.com/huangqiheng/kodak-sp360-4k.git
 cd kodak-sp360-4k
 npm install
-npm install http-server -g
+```
 
+
+## modify network configation
 
 vim /etc/network/interface
 ```
