@@ -41,20 +41,25 @@ if (process.argv[1] === __filename) {
 
 function stitch_panorama(left_img, right_img, callback)
 {
+	const files = ['out', 'out0000.tif','out0001.tif','out_pano.jpg'];
 	let args_base = ['-z','LZW', '-r','ldr', '-m','TIFF_m', '-o','out'];
 	let args = [PTO_FILE, left_img, right_img];
 
 	async.waterfall([(callback)=>{
-		let nona = spawn('nona', [...args_base, '-i', '0', ...args]);
+		spawn_run('nona', [...args_base, '-i', '0', ...args], (err, res)=>{
+			callback(err, res);
+		});
 	}, (res, callback) => {
-		let nona = spawn('nona', [...args_base, '-i', '1', ...args]);
+		spawn_run('nona', [...args_base, '-i', '1', ...args], (err, res)=>{
+			callback(err, res);
+		});
+	}, (res, callback) => {
+		spawn_run('enblend', ['-o',output_img,'--compression=100','out0000.tif','out0001.tif'], (err, res)=>{
+			callback(err, res);
+		});
 	}], (err, res) => {
 
 	});
-
-
-	let output_img;
-	let enblend = spawn('enblend', ['-o',output_img,'--compression=100',out0000.tif, out0001.tif]);
 
 }
 

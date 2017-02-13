@@ -1,22 +1,33 @@
 'use strict';
 
-//............... global defind ..............
-//////////////////////////////////////////////
-
-global.HOST_LOCALIP_A = '172.16.0.101';
-global.HOST_LOCALIP_B = '172.16.0.102';
-global.iface = {'172.16.0.101':'wlan1', '172.16.0.102':'wlan2'};
-global.CAM_HOST = '172.16.0.254';
-global.CAM_CMD_PORT = 9175;
-global.CAM_WEB_PORT = 80;
-global.CAM_WEB_TIMEOUT = 1500;
-global.PTO_FILE = __dirname + '/kodak.pto';
-
-//////////////////////////////////////////////
-
 const dgram = require("dgram");
 const hex = require('hex');
 const prettyjson = require('prettyjson');
+const mkdirp = require('mkdirp');
+
+require('./config.js');
+mkdirp.sync(CACHE_ROOT);
+mkdirp.sync(WEB_ROOT);
+
+global.spawn_run = function(cmd, args, callback) {
+	let child = spawn(cmd, [...args]);
+
+	child.stdout.on('data', (data) => {});
+	child.stdout.on('end', (data) => {});
+
+	child.on('error', (err) => {
+		callback('error: ' + err);
+	});
+
+	child.on('exit', (code, signal) => {
+		if (code != 0) {
+			callback('Failed: ' + code + ' signal: ' + signal);
+		} else {
+			callback(null, signal);
+		}
+	});
+	return child;
+};
 
 global.print_hex = function(buffer, title=null) {
 	if (buffer) {

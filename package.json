@@ -29,6 +29,7 @@
     "http-server": "^0.9.0",
     "json-ptr": "^1.0.1",
     "merge": "^1.2.0",
+    "mkdirp": "^0.5.1",
     "nodejs-websocket": "^1.7.1",
     "prettyjson": "^1.2.0",
     "request": "^2.79.0",
