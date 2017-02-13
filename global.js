@@ -10,6 +10,7 @@ global.CAM_HOST = '172.16.0.254';
 global.CAM_CMD_PORT = 9175;
 global.CAM_WEB_PORT = 80;
 global.CAM_WEB_TIMEOUT = 1500;
+global.PTO_FILE = __dirname + '/kodak.pto';
 
 //////////////////////////////////////////////
 

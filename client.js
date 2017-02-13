@@ -39,6 +39,25 @@ if (process.argv[1] === __filename) {
 	module.exports = snapshot_photos;
 }
 
+function stitch_panorama(left_img, right_img, callback)
+{
+	let args_base = ['-z','LZW', '-r','ldr', '-m','TIFF_m', '-o','out'];
+	let args = [PTO_FILE, left_img, right_img];
+
+	async.waterfall([(callback)=>{
+		let nona = spawn('nona', [...args_base, '-i', '0', ...args]);
+	}, (res, callback) => {
+		let nona = spawn('nona', [...args_base, '-i', '1', ...args]);
+	}], (err, res) => {
+
+	});
+
+
+	let output_img;
+	let enblend = spawn('enblend', ['-o',output_img,'--compression=100',out0000.tif, out0001.tif]);
+
+}
+
 function snapshot_photos(done)
 {
 	let snaper = [];
