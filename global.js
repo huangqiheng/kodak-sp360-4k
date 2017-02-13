@@ -4,10 +4,40 @@ const dgram = require("dgram");
 const hex = require('hex');
 const prettyjson = require('prettyjson');
 const mkdirp = require('mkdirp');
+const fs= require('fs');
 
 require('./config.js');
 mkdirp.sync(CACHE_ROOT);
 mkdirp.sync(WEB_ROOT);
+mkdirp.sync(WEB_IMG);
+
+global.move = function (oldPath, newPath, callback) {
+    fs.rename(oldPath, newPath, function (err) {
+        if (err) {
+            if (err.code === 'EXDEV') {
+                copy();
+            } else {
+                callback(err);
+            }
+            return;
+        }
+        callback();
+    });
+
+    function copy() {
+        var readStream = fs.createReadStream(oldPath);
+        var writeStream = fs.createWriteStream(newPath);
+
+        readStream.on('error', callback);
+        writeStream.on('error', callback);
+
+        readStream.on('close', function () {
+            fs.unlink(oldPath, callback);
+        });
+
+        readStream.pipe(writeStream);
+    }
+}
 
 global.spawn_run = function(cmd, args, callback) {
 	let child = spawn(cmd, [...args]);
@@ -116,4 +146,5 @@ global.call_base = function(object, method, args) {
 		base = Object.getPrototypeOf(base);
 	}
 }
+
 

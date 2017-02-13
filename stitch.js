@@ -24,43 +24,87 @@ if (process.argv[1] === __filename) {
 		break;
 	case 'ab':
 	case 'ba':
-		snapshot_photos((paths)=>{
-			if (paths) {
+		snapshot_photos((err, paths)=>{
+			if (err) {
+				console.log(err);
+			} else {
 				console.log('photo A: ', paths[0]);
 				console.log('photo B: ', paths[1]);
+			}
+		});
+		break;
+	case 'pano':
+		gen_panorama((err, res)=>{
+			if (err) {
+				console.log(err);
 			} else {
-				console.log('error.');
+				console.log('output pano: ', res);
 			}
 		});
 		break;
 	default:
 	}
 } else {
-	module.exports = snapshot_photos;
+	module.exports = gen_panorama;
 }
 
-function stitch_panorama(left_img, right_img, callback)
+function gen_panorama(callback)
 {
-	const files = ['out', 'out0000.tif','out0001.tif','out_pano.jpg'];
-	let args_base = ['-z','LZW', '-r','ldr', '-m','TIFF_m', '-o','out'];
+	snapshot_photos((err, paths)=>{
+		err && callback(err);
+		err || stitch_panorama(paths[0], paths[1], callback);
+	});
+}
+
+function stitch_panorama(left_img, right_img, done)
+{
+	const bname = CACHE_ROOT + '/out';
+	const files = [bname, bname+'0000.tif', bname+'0001.tif', bname+'_pano.jpg'];
+	let args_base = ['-z','LZW', '-r','ldr', '-m','TIFF_m', '-o',files[0]];
 	let args = [PTO_FILE, left_img, right_img];
 
 	async.waterfall([(callback)=>{
+		fs.unlinkSync(files[0]);
+		fs.unlinkSync(files[1]);
+		fs.unlinkSync(files[2]);
+		fs.unlinkSync(files[3]);
+		callback(null, 'done');	
+	}, (res, callback) => {
 		spawn_run('nona', [...args_base, '-i', '0', ...args], (err, res)=>{
-			callback(err, res);
+			if (fs.existsSync(files[1])) {
+				callback(err, res);
+			} else {
+				callback('nona first error.');
+			}
 		});
 	}, (res, callback) => {
 		spawn_run('nona', [...args_base, '-i', '1', ...args], (err, res)=>{
-			callback(err, res);
+			if (fs.existsSync(files[2])) {
+				callback(err, res);
+			} else {
+				callback('nona second error.');
+			}
 		});
 	}, (res, callback) => {
-		spawn_run('enblend', ['-o',output_img,'--compression=100','out0000.tif','out0001.tif'], (err, res)=>{
-			callback(err, res);
+		spawn_run('enblend', ['-o',files[3],'--compression=100',files[1], files[2]], (err, res)=>{
+			if (fs.existsSync(files[3])) {
+				callback(err, files[3]);
+			} else {
+				callback('enblend error.');
+			}
 		});
 	}], (err, res) => {
-
+		if (err === null) {
+			let out_basename = path.basename(left_img, '.jpg');
+			let out_file = WEB_IMG + '/' + out_basename + '_pano.jpg';
+			move(res, out_file, (err)=>{
+				err && done(err);
+				err || done(null, out_file);
+			});
+		} else {
+			done(err);
+		}
 	});
-
 }
 
 function snapshot_photos(done)
@@ -79,26 +123,26 @@ function snapshot_photos(done)
 		}
 	}
 
-	function result_paths(paths){
-		has_return || done(paths);
+	function result_paths(err, paths){
+		has_return || done(err, paths);
 		has_return = true;
 	}
 
 	snapshot(HOST_LOCALIP_A, (err, result) => {
 		if (err) {
-			return result_paths(null);
+			return result_paths(err);
 		}
 		outputs.push(result);
-		(outputs.length===2) && result_paths(outputs);
+		(outputs.length===2) && result_paths(null, outputs);
 		//console.log('photo A: ', result);
 	}, trigger);
 
 	snapshot(HOST_LOCALIP_B, (err, result) => {
 		if (err) {
-			return result_paths(null);
+			return result_paths(err);
 		}
 		outputs.push(result);
-		(outputs.length===2) && result_paths(outputs);
+		(outputs.length===2) && result_paths(null, outputs);
 		//console.log('photo B: ', result);
 	}, trigger);
 
