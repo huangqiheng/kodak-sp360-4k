@@ -34,7 +34,6 @@
     "prettyjson": "^1.2.0",
     "request": "^2.79.0",
     "tcp-base": "huangqiheng/tcp-base",
-    "webvr-boilerplate": "^0.4.9",
     "wireless": "^0.3.2",
     "xml2js": "^0.4.17"
   }

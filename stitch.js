@@ -106,7 +106,7 @@ function stitch_panorama(left_img, right_img, done)
 	}], (err, res) => {
 		if (err === null) {
 			let out_basename = path.basename(left_img, '.jpg');
-			let out_file = WEB_IMG + '/' + out_basename + '_pano.jpg';
+			let out_file = WEB_PANO + '/' + out_basename + '_pano.jpg';
 			move(res, out_file, (err)=>{
 				err && done(err);
 				err || done(null, out_file);

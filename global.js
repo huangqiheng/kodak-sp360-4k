@@ -10,7 +10,7 @@ const fs= require('fs');
 require('./config.js');
 mkdirp.sync(CACHE_ROOT);
 mkdirp.sync(WEB_ROOT);
-mkdirp.sync(WEB_IMG);
+mkdirp.sync(WEB_PANO);
 
 global.move = function (oldPath, newPath, callback) {
     fs.rename(oldPath, newPath, function (err) {

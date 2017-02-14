@@ -11,4 +11,4 @@ global.CAM_WEB_TIMEOUT = 1500;
 global.PTO_FILE = __dirname + '/kodak.pto';
 global.CACHE_ROOT = __dirname + '/cache';
 global.WEB_ROOT = __dirname + '/public';
-global.WEB_IMG = WEB_ROOT + '/img';
+global.WEB_PANO = WEB_ROOT + '/pano';
