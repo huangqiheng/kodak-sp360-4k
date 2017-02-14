@@ -2,6 +2,7 @@
 
 const dgram = require("dgram");
 const hex = require('hex');
+const spawn = require('child_process').spawn;
 const prettyjson = require('prettyjson');
 const mkdirp = require('mkdirp');
 const fs= require('fs');

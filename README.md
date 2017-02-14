@@ -4,7 +4,7 @@
 
 ```
 apt update && apt upgrade
-apt install -y python
+apt install -y build-essential python
 apt install -y hugin-tools enblend libav-tools
 
 curl -sL https://deb.nodesource.com/setup_7.x | sudo -E bash -

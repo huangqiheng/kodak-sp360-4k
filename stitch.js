@@ -4,7 +4,6 @@ const fs= require('fs');
 const async = require('async');
 const url = require('url');
 const path = require('path');
-const spawn = require('child_process').spawn;
 const [Kodak,KodakWeb] = require('./kodak.js');
 
 //check if it's calling this script file directly
@@ -25,21 +24,24 @@ if (process.argv[1] === __filename) {
 	case 'ab':
 	case 'ba':
 		snapshot_photos((err, paths)=>{
-			if (err) {
-				console.log(err);
-			} else {
-				console.log('photo A: ', paths[0]);
-				console.log('photo B: ', paths[1]);
-			}
+			err && console.log(err);
+			err || console.log('photo A: ', paths[0]);
+			err || console.log('photo B: ', paths[1]);
 		});
 		break;
 	case 'pano':
+		let left_img = process.argv[3] ||  CACHE_ROOT + '/101_S0JA0010000048L0.jpg';
+		let right_img = process.argv[4] ||  CACHE_ROOT + '/102_S0JA0010000048L0.jpg';
+
+		stitch_panorama(left_img, right_img, (err, res)=>{
+			err && console.log(err);
+			err || console.log('pano photo: ', res);
+		});	
+		break;
+	case 'gen':
 		gen_panorama((err, res)=>{
-			if (err) {
-				console.log(err);
-			} else {
-				console.log('output pano: ', res);
-			}
+			err && console.log(err);
+			err || console.log('output pano: ', res);
 		});
 		break;
 	default:
@@ -64,10 +66,18 @@ function stitch_panorama(left_img, right_img, done)
 	let args = [PTO_FILE, left_img, right_img];
 
 	async.waterfall([(callback)=>{
-		fs.unlinkSync(files[0]);
-		fs.unlinkSync(files[1]);
-		fs.unlinkSync(files[2]);
-		fs.unlinkSync(files[3]);
+		if (!fs.existsSync(left_img)) {
+			callback('left file not exists.');
+			return;
+		}
+		if (!fs.existsSync(right_img)) {
+			callback('right file not exists.');
+			return;
+		}
+		fs.existsSync(files[0]) && fs.unlinkSync(files[0]);
+		fs.existsSync(files[1]) && fs.unlinkSync(files[1]);
+		fs.existsSync(files[2]) && fs.unlinkSync(files[2]);
+		fs.existsSync(files[3]) && fs.unlinkSync(files[3]);
 		callback(null, 'done');	
 	}, (res, callback) => {
 		spawn_run('nona', [...args_base, '-i', '0', ...args], (err, res)=>{
