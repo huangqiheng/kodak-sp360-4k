@@ -1,15 +1,8 @@
-var Cylon = require("cylon");
+'use strict';
 
-Cylon.robot({
-  connections: {
-    raspi: { adaptor: 'raspi' }
-  },
+var Gpio = require('onoff').Gpio,
+  button = new Gpio(22, 'in', 'both');
 
-  devices: {
-    led: { driver: 'led', pin: 11 }
-  },
-
-  work: function(my) {
-    every((1).second(), my.led.toggle);
-  }
-}).start();
+button.watch(function(err, value) {
+	console.log('button pressed');
+});
