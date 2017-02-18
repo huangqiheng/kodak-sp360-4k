@@ -6,6 +6,9 @@ const fs = require("fs");
 const ptr = require('json-ptr');
 const merge = require('merge');
 const path = require('path');
+const qrcode = require('qrcode-terminal');
+const ip = require('ip');
+
 
 var server = ws.createServer(function (conn) {
 	conn.client_name = null;
@@ -48,7 +51,17 @@ var website = httpServer.createServer({
 	ext: 'html',
 	cache: 1, //development
 	cors: true
-}).listen(8080);
+}).listen(80);
+
+
+if (process.argv[1] === __filename) {
+	let public_addr = process.argv[2] || ip.address();
+	let url = 'http://'+ public_addr;
+
+	qrcode.generate(url, { small: true }, function (qr) {
+	    console.log(qr);
+	});
+}
 
 function res_err(conn, req, err_str) {
 	let res = {};

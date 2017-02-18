@@ -33,6 +33,7 @@
     "nodejs-websocket": "^1.7.1",
     "onoff": "^1.1.2",
     "prettyjson": "^1.2.0",
+    "qrcode-terminal": "^0.11.0",
     "request": "^2.79.0",
     "tcp-base": "huangqiheng/tcp-base",
     "wireless": "^0.3.2",
